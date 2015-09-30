@@ -5,7 +5,9 @@
 Used for interactive sessions and for writing quick throw-away scripts
 
 It requires 'he', defines it as a global, adds some utility functions 
-(display, debug), and adds he string functions to the string metatable.
+(display, debug), defines a few globals, and adds he string functions t
+o the string metatable. (see function 'extend_all' at the end)
+
 
 
 
@@ -25,7 +27,7 @@ function he.l2s(t)
 	-- (an evaluable lua list, at least for bool, str and numbers)
 	-- !!  beware:  elements of type table are treated by t2s()  !!
 	local rl = {}
-	local repr = he.repr
+	local repr, app, join = he.repr, he.list.app, he.list.join
 	for i, v in ipairs(t) do 
 		app(rl, (type(v) == "table") and he.t2s(v) or repr(v))
 	end
@@ -36,7 +38,7 @@ function he.t2s(t)
 	-- return table t as a string 
 	-- (an evaluable lua table, at least for bool, str and numbers)
 	-- (!!cycles are not detected!!)
-	local repr = he.repr
+	local repr, app, join = he.repr, he.list.app, he.list.join
 	if type(t) ~= "table" then return repr(t) end
 	if getmetatable(t) == he.list then return he.l2s(t)  end
 	local rl = {}

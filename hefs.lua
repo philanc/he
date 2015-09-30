@@ -26,7 +26,7 @@ local hefs = {}  -- the hefs module
 -- pathname functions
 
 
-function hehefs.basename(path, suffix)
+function hefs.basename(path, suffix)
 	-- works like unix basename.  
 	-- if path ends with suffix, it is removed
 	-- if suffix is a list, then first matching suffix in list is removed
@@ -38,11 +38,11 @@ function hehefs.basename(path, suffix)
 	return base
 end
 
-function hehefs.dirname(path)
+function hefs.dirname(path)
 	return path:match("^(.+)/.*$") or ""
 end
 
-function hehefs.makepath(dirname, name, ext)
+function hefs.makepath(dirname, name, ext)
 	-- returns a path made with a dirname, a filename and an optional ext.
 	-- path uses unix convention (separator is '/')
 	-- ext is assumed to contain the dot, ie. makepath('/abc', 'file', '.txt')
@@ -66,7 +66,7 @@ local win = he.windows
 local sep = '/'
 local resep = '/'  -- can be used in a re
 
-hehefs.sep, hehefs.resep = sep, resep
+hefs.sep, hefs.resep = sep, resep
 
 local function striprsep(p) 
 	-- remove sep at end of path
@@ -89,29 +89,29 @@ local function wdrive(p)
 	end
 end
 
-function hehefs.pisabs(p)
+function hefs.pisabs(p)
 	-- return true if p is an absolute path
 	-- either '/something' or 'a:/something'
 	return p:match('^%a:/') or p:match('^/')
 end
 
-function hehefs.psplit(p) 
+function hefs.psplit(p) 
 	local pl = split(p, '/')
 	if pl[1] == '' then pl[1] = '/' end
 	if pl[#pl] == '' then table.remove(pl, #pl) end
 	return pl
 end
 
-function hehefs.psplitdir(p)
+function hefs.psplitdir(p)
 	-- return dir, name
 	if p == '' then return "", "" end
-	local pl = hehefs.psplit(p)
+	local pl = hefs.psplit(p)
 	local name = pl[#pl]
 	table.remove(pl, #pl)
-	return hehefs.pjoin(pl), name
+	return hefs.pjoin(pl), name
 end
 
-function hehefs.psplitext(p)
+function hefs.psplitext(p)
 	--return basename, ext
 	p = striprsep(p)
 	local i0 = 1; local i
@@ -129,7 +129,7 @@ function hehefs.psplitext(p)
 	return p:sub(1, i0-1), p:sub(i0+1, #p)
 end
 
-function hehefs.pjoin(a, b)
+function hefs.pjoin(a, b)
 	-- build a path from name components
 	-- 2 forms: pjoin(namelist) or pjoin(a, b)
 	if type(a) == 'table' then 
@@ -147,8 +147,8 @@ end
 
 
 -- lfs synonyms
-hehefs.chdir = lfs.chdir
-hehefs.rmdir = lfs.rmdir
+hefs.chdir = lfs.chdir
+hefs.rmdir = lfs.rmdir
 hefs.mkdir = lfs.mkdir
 hefs.touch = lfs.touch
 --
@@ -316,4 +316,4 @@ end
 
 
 ------------------------------------------------------------------------
-return fs
+return hefs
