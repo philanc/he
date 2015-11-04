@@ -152,7 +152,9 @@ local function newbox(x, y, xm, ym, attr, selattr)
 end -- newbox
 
 local function putfiller(box, filler)
-	if filler & 0xffffffff00000000 == 0 then 
+	if not filler then 
+		filler = box.attr
+	elseif filler & 0xffffffff00000000 == 0 then 
 		filler = filler | box.attr 
 	end
 	for y = box.y, box.ym do
@@ -183,6 +185,13 @@ local function putlist(box, sl, idx, seloffset)
 	end
 end -- putlist
 
+local function getch(evt)
+	-- return a unique code combining evt.ch, evt.key and evt.mod
+	--!!! bad! key codes may overlap with unicode in utf8 mode.... :-(
+	local code = (evt.ch ~= 0) and evt.ch or evt.key
+	-- process mod -todo
+	return code
+end
 
 ------------------------------------------------------------------------
 return  { -- term module
@@ -191,6 +200,7 @@ return  { -- term module
 	newbox = newbox,
 	putlist = putlist,
 	putfiller = putfiller,
+	getch = getch,
 	--
 	keys = keys,
 	colors = colors,
