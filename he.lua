@@ -18,7 +18,7 @@ content:
   join			join all elements into a string (same as table.concat)
   sort			sort a list (same as table.sort)
   sorted		return a sorted copy of a list
-  extend		append all the element of another list 
+  extend		append all the elements of another list 
   filter		select elements that match a predicate
   map			map a function over a list
   has			test if a list contains some value
@@ -511,8 +511,12 @@ function he.ntos(n, nf)
 	-- eg. ntos(12345) -> "12,345",  
 	-- with Lua 5.3, if n is not an integer, default format '%.2f' is used
 	-- eg. ntos(1234.5) -> "1,234.50"
-	nf = nf or "%d"
-	if _VERSION=="Lua 5.3" and math.type(n)=="float" then nf = "%.2f" end 
+	
+	if _VERSION=="Lua 5.3" and math.type(n)=="float" then 
+		nf = nf or "%.2f" 
+	else
+		nf = nf or "%d"
+	end 
 	local s = string.format(nf, n)
 	local t = he.split(s, '%.'); s = t[1]
 	s, n = string.gsub(s, '(%d)(%d%d%d)$', '%1,%2')
