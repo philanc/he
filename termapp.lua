@@ -156,6 +156,7 @@ end
 function editline.edit(e)
 	local evt = {}
 	local et, ch
+	e:goeol() -- start at end of an initial string
 	e:redisplay()
 	while true do
 		et = lt.pollevent(evt)
