@@ -17,10 +17,11 @@ local he = require 'he'
 local colors, keys = term.colors, term.keys
 
 local strf = string.format
-local byte, char = string.byte, string.char
-local spack, sunpack = string.pack, string.unpack
+local byte, char, sub = string.byte, string.char, string.sub
 
 local app, concat = table.insert, table.concat
+
+local list, class = he.list, he.class
 
 ------------------------------------------------------------------------
 -- utilities
@@ -38,13 +39,140 @@ function evtstatus(ta, et, code, key, w, h)
 	ta.msep.changed = true
 	
 end
+------------------------------------------------------------------------
+-- editline functions
 
-function editline(ta, box, prompt)
-	local cl = {}
-	
+local editline = class()
 
+function editline:init(s, x, y, xm, attr)
+	-- s: initial value of string
+	self.attr = attr or 0
+	self.x, self.y, self.xm, self.cur = x, y, xm
+	-- sl is a list of char codes
+	local sl = list(); for i = 1, #s do sl:app(byte(s, i)) end --FIXME UTF8
+	self.sl = sl
+	-- c is the cursor in the line being edited
+	self.c = 1
+	self.cl = 1  --index of the leftmost char (horiz scroll.)
+	self.cx = x  -- the screen cursor
+	return self
 end
 
+function editline.redisplay(e)
+	local y, attr = e.y, e.attr
+	local sx = e.x
+	for i, ch in ipairs(e.sl) do
+		lt.putcell(sx, y, ch | attr)
+		sx = sx + 1  --FIX tab and other multicell chars
+		if sx >= e.xm then break end
+	end
+	while sx <= e.xm do --erase remaining cells to end of box
+		lt.putcell(sx, y, 32 | attr)
+		sx = sx + 1
+	end
+	-- set screen cursor
+	lt.setcursor(e.cx, e.y)
+	lt.present()
+end
+
+function editline.ateol(e)
+	--return true if string cursor is at end of line
+	return (e.c == #e.sl + 1)
+end
+
+function editline.atbol(e)
+	-- return true if string cursor is at beginning of line 
+	return (e.c == 1)
+end
+
+function editline.forward(e)
+	if e:ateol() then return false end -- cannot move forward
+	e.c = e.c + 1
+	e.cx = e.cx + 1 -- to fix for tabs and other multicell chars!!!
+	-- TODO add horiz scroll here
+	return true
+end
+
+function editline.backward(e)
+	if e:atbol() then return false end -- cannot move backward
+	e.c = e.c - 1
+	e.cx = e.cx - 1
+	-- TODO add horiz scroll here
+	return true
+end
+
+function editline.insertchar(e, ch)
+	-- delete char ch at string cursor, don't move
+	table.insert(e.sl, e.c, ch)
+	return e:forward()
+end
+	
+function editline.deletechar(e, ch)
+	-- insert char ch at string cursor, move forward
+	if e:ateol() then return false end
+	table.remove(e.sl, e.c)
+	return true
+end
+
+function editline.killeol(e)
+	-- delete all chars from cursor to end of line
+	while e:deletechar() do end
+	return true
+end
+
+function editline.backspace(e)
+	return e:backward() and e:deletechar()
+end
+
+function editline.goeol(e)
+	while e:forward() do end
+	return true
+end
+
+function editline.gobol(e)
+	while e:backward() do end
+	return true
+end
+
+function editline.getline(e)
+	-- return the line as a string
+	local t = {}
+	for i, ch in ipairs(e.sl) do t[i] = char(ch) end --FIX UTF8
+	return concat(t)
+end
+
+function editline.docmd(e, ch)
+	if ch >= 32 and ch < 256 then e:insertchar(ch)
+	elseif ch==8  then e:backspace()
+	elseif ch==1 or ch==keys.khome  then e:gobol()		-- ^A
+	elseif ch==5 or ch==keys.kend   then e:goeol()		-- ^E
+	elseif ch==2 or ch==keys.kleft  then e:backward()	-- ^B
+	elseif ch==6 or ch==keys.kright then e:forward()	-- ^F
+	elseif ch==4 or ch==keys.kdel   then e:deletechar()	-- ^D
+	elseif ch==11                   then e:killeol()	-- ^K
+	end
+end
+
+function editline.edit(e)
+	local evt = {}
+	local et, ch
+	e:redisplay()
+	while true do
+		et = lt.pollevent(evt)
+		-- ignore resize events
+		if et==1 then
+			ch = term.getch(evt)
+			if ch==27 or ch==7 then return nil end --ESC, ^G
+			if ch==13 then return e:getline() end  --RET
+			e:docmd(ch)
+			e:redisplay()
+		end
+	end
+end
+			
+	
+
+	
 ------------------------------------------------------------------------
 
 ta = {} -- the termapp module / singleton object
@@ -159,10 +287,9 @@ function ta.minimsg(ta, s)
 end
 
 function ta.miniprompt(ta, prompt, default)
-	if default then prompt = strf("%s [%s] ", prompt, default) end
-	value = editline(ta, ta.mini, prompt)
-	if not value then return nil end --cancel
-	if default and (value == "") then value = default end
+--~ 	if default then prompt = strf("%s [%s] ", prompt, default) end
+	local el = editline():init(default, ta.mini.x, ta.mini.y, ta.mini.xm)
+	local value = el:edit()
 	return value
 end
 
@@ -170,17 +297,19 @@ function ta.inputstep(ta, evt)
 	-- return an input key code
 	-- handle redisplay when screen size changes.
 	-- evt is passed as a parameter to avoid reallocation at each event
+	local et, ch
 	assert(type(evt)=="table", "inputstep: evt not allocated")
 	while true do
-		local et = lt.pollevent(evt)
+		et = lt.pollevent(evt)
 		if et == 2 then --resize event
-			ch = -2
 			ta.scrw, ta.scrh = evt.w, evt.h
 			ta:resizeall()
 			ta:redisplay(true) -- display error when term window is maxed
 			ta:redisplay(true) -- fixed with a 2nd display 
+			ch = -2
+			return ch -- allow the app to know that screen dim have changed
 		elseif et == 1 then
-			local ch = term.getch(evt)
+			ch = term.getch(evt)
 			return ch
 		else
 			error(strf("inputstep: evt type=%d", et))
@@ -256,10 +385,14 @@ function app.paint(app, force)
 end
 
 function app.handle(app, code)
+	local s
 	app.status = strf(" ch:%d  w:%d  h:%d ", code, app.ta.scrw, app.ta.scrh)
 	if code == byte'q' then return 2 -- app quit
 	elseif code == byte'i' then app.ta:miniinfo("Mini info!!!") 
 	elseif code == byte'm' then app.ta:minimsg("Mini msg........") 
+	elseif code == byte'r' then 
+		s = app.ta:miniprompt("P", "try to edit")
+		app.ta:miniinfo("result is: "..tostring(s) )
 	elseif code == byte'e' then zza=zzb.zzc -- test error msg
 	end
 	return 0
