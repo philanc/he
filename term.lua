@@ -84,6 +84,13 @@ local keys = {
 	mod_alt        = 0x01,
 }
 
+local function setcursor(cx, cy)
+	-- set cursor at screen position cx, cy 
+	-- (topleft is (1,1))
+	-- (0,0) => hide cursor
+	lt.setcursor(cx, cy)
+end
+
 local function putsubstring(s, i, j, x, y, xm, attr, fill)
 	-- put part of a string on screen at coordinates x, y
 	-- i: index of first byte to display in string
@@ -195,6 +202,7 @@ end
 
 ------------------------------------------------------------------------
 return  { -- term module
+	setcursor = setcursor,
 	putsubstring = putsubstring,
 	putstring = putstring,
 	newbox = newbox,

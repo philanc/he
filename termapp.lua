@@ -58,6 +58,11 @@ function editline:init(s, x, y, xm, attr)
 	return self
 end
 
+function editline.setbox(e, x, y, xm, attr)
+	e.cx = x + (e.cx - e.x) -- adjust cursor (same offset relative to x)
+	e.x, e.y, e.xm, e.attr = x, y, xm, attr
+end
+
 function editline.redisplay(e)
 	local y, attr = e.y, e.attr
 	local sx = e.x
@@ -71,7 +76,7 @@ function editline.redisplay(e)
 		sx = sx + 1
 	end
 	-- set screen cursor
-	lt.setcursor(e.cx, e.y)
+	term.setcursor(e.cx, e.y)
 	lt.present()
 end
 
@@ -134,6 +139,11 @@ function editline.gobol(e)
 	return true
 end
 
+function editline.insertstring(e, s)
+	for i = 1, #s do e:insertchar(byte(s, i)) end
+	return true
+end
+
 function editline.getline(e)
 	-- return the line as a string
 	local t = {}
@@ -142,18 +152,24 @@ function editline.getline(e)
 end
 
 function editline.docmd(e, ch)
-	if ch >= 32 and ch < 256 then e:insertchar(ch)
-	elseif ch==8  then e:backspace()
+	-- process default line editing commands
+	local done = true
+	if     ch==8 or ch==127         then e:backspace()  -- ^H
 	elseif ch==1 or ch==keys.khome  then e:gobol()		-- ^A
 	elseif ch==5 or ch==keys.kend   then e:goeol()		-- ^E
 	elseif ch==2 or ch==keys.kleft  then e:backward()	-- ^B
 	elseif ch==6 or ch==keys.kright then e:forward()	-- ^F
 	elseif ch==4 or ch==keys.kdel   then e:deletechar()	-- ^D
 	elseif ch==11                   then e:killeol()	-- ^K
+	elseif ch >= 32 and ch < 256 then e:insertchar(ch)
+	else done = false
 	end
+	return done
 end
 
 function editline.edit(e)
+	-- complete event loop for simplest use
+	-- (does not handle resize)
 	local evt = {}
 	local et, ch
 	e:goeol() -- start at end of an initial string
@@ -287,12 +303,35 @@ function ta.minimsg(ta, s)
 	ta:miniinfo("")
 end
 
-function ta.miniprompt(ta, prompt, default)
+function ta.miniprompt0(ta, prompt, default)
 --~ 	if default then prompt = strf("%s [%s] ", prompt, default) end
 	local el = editline():init(default, ta.mini.x, ta.mini.y, ta.mini.xm)
 	local value = el:edit()
 	return value
 end
+
+function ta.miniprompt(ta, prompt, default)
+--~ 	if default then prompt = strf("%s [%s] ", prompt, default) end
+	local mi = ta.mini
+	local el = editline():init(default, mi.x, mi.y, mi.xm)
+	local evt = {}
+	local et, ch
+	el:goeol() -- start at end of an initial string
+	el:redisplay()
+	while true do
+		term.setcursor(0, 0)  -- no dangling cursor in case of exit
+		ch = ta:inputstep(evt)
+		if ch==27 or ch==7 then return nil end --ESC, ^G
+		if ch==13 then return el:getline() end  --RET
+		if ch==-2 or ch==12 then 
+			el:setbox(mi.x, mi.y, mi.xm, mi.attr)
+		else 
+			el:docmd(ch)
+		end
+		el:redisplay() -- (including show cursor)
+	end
+end
+
 
 function ta.inputstep(ta, evt) 
 	-- return an input key code
