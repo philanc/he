@@ -196,7 +196,8 @@ local function getch(evt)
 	-- return a unique code combining evt.ch, evt.key and evt.mod
 	--!!! bad! key codes may overlap with unicode in utf8 mode.... :-(
 	local code = (evt.ch ~= 0) and evt.ch or evt.key
-	-- process mod -todo
+	-- process mod
+	if evt.mod > 0 then code = code | 0x10000 end
 	return code
 end
 

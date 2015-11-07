@@ -312,8 +312,11 @@ end
 
 function ta.miniprompt(ta, prompt, default)
 --~ 	if default then prompt = strf("%s [%s] ", prompt, default) end
+	default = default or ""
+	ta:miniinfo(prompt)
 	local mi = ta.mini
-	local el = editline():init(default, mi.x, mi.y, mi.xm)
+	local promptsize = #prompt -- number of cells on screen FIX UTF8, tab,... 
+	local el = editline():init(default, mi.x+promptsize, mi.y, mi.xm)
 	local evt = {}
 	local et, ch
 	el:goeol() -- start at end of an initial string
@@ -324,7 +327,7 @@ function ta.miniprompt(ta, prompt, default)
 		if ch==27 or ch==7 then return nil end --ESC, ^G
 		if ch==13 then return el:getline() end  --RET
 		if ch==-2 or ch==12 then 
-			el:setbox(mi.x, mi.y, mi.xm, mi.attr)
+			el:setbox(mi.x+promptsize, mi.y, mi.xm, mi.attr)
 		else 
 			el:docmd(ch)
 		end
@@ -426,12 +429,15 @@ end
 
 function app.handle(app, code)
 	local s
-	app.status = strf(" ch:%d  w:%d  h:%d ", code, app.ta.scrw, app.ta.scrh)
+	app.status = strf(" ch:0x%02x  w:%d  h:%d ", code, app.ta.scrw, app.ta.scrh)
 	if code == byte'q' then return 2 -- app quit
+	elseif code == byte'a' then 
+		app.ta:miniinfo("input/alt mode: " .. lt.inputmode()) 
+		lt.inputmode(2)
 	elseif code == byte'i' then app.ta:miniinfo("Mini info!!!") 
 	elseif code == byte'm' then app.ta:minimsg("Mini msg........") 
 	elseif code == byte'r' then 
-		s = app.ta:miniprompt("P", "try to edit")
+		s = app.ta:miniprompt("edit: ")
 		app.ta:miniinfo("result is: "..tostring(s) )
 	elseif code == byte'e' then zza=zzb.zzc -- test error msg
 	end
