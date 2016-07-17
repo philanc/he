@@ -291,7 +291,7 @@ function hefs.rmdirs(pn)
 	for i, dname in ipairs(hefs.dirs(pn)) do
 		hefs.rmdirs(dname)
 	end
-	hefs.rmdir(pn)
+	return hefs.rmdir(pn)
 end
 
 --
