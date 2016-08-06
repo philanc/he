@@ -56,27 +56,36 @@ content:
   repr			return a string representation of a value
   ntos			convert a number to a string with a thousand separator ','
   
-  --misc OS and file functions
+  --misc OS functions
   isodate		convert time to ISO date representation
   iso2time		parse ISO date and return a time (sec since epoch)
+  shell			execute a shell command, return stdout as a string
+  shlines		execute a shell command, return stdout as a list of lines
+  escape_sh		escape posix shell special chars
+  source_line   return the current file and line number
+  exitf			write a formatted message and exit from the program
+  checkf        check a value. if false, exit with a formatted message
+  
+  -- misc file and pathname functions
   fget			return the content of a file as a string
   fput			write a string to a file
   fgetlines		return the content of a file as a list of strings
   fputlines		write a list of lines to a file
-  shell			execute a shell command, return stdout as a string
-  shlines		execute a shell command, return stdout as a list of lines
-  escape_sh		escape posix shell special chars
   pnormw		normalize a path for windows
   pnorm			normalize a path for unix
   tmpdir		returns a temp directory
   ptmp			returns a temp path
+  basename		strip directory and suffix from a file path
+  dirname       strip last component from file path
+  fileext       return the extension of a file path
+  is_absolute_path  return true if a path is absolute
 
 
 ]]
 
 local he = {}  -- the he module
 
-he.VERSION = 'he089, 150929'
+he.VERSION = 'he090, 160806'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -633,7 +642,18 @@ he.windows = ( string.byte(he.pathsep) == 92)  -- 92 is '\'
 	
 he.newline = he.windows and '\r\n' or '\n'
 
--- normalize pathnames
+function he.tmpdir()
+	return he.windows and he.pnorm(os.getenv('TMP')) 
+		or os.getenv('TMP') or '/tmp'
+end
+
+function he.ptmp(name) 
+	-- generate a tmp file path from a name
+	-- return a tmp path - eg on unix,  he.ptmp('xyz') -> /tmp/xyz
+	return he.tmpdir() .. '/' .. name
+end
+
+-- pathname functions
 
 function he.pnormw(p)
 	-- normalize a path for windows
@@ -649,19 +669,78 @@ function he.pnorm(p)
 	return np
 end
 
--- tmp file names
-
-function he.tmpdir()
-	return he.windows and he.pnorm(os.getenv('TMP')) 
-		or os.getenv('TMP') or '/tmp'
+local function striprsep(p) 
+	-- remove sep at end of path
+	if p:match('^%a:/$') or p:match('^/$') then return p end
+	return p:gsub('/$', '') 
 end
 
-function he.ptmp(name) 
-	-- generate a tmp file path from a name
-	-- return a tmp path - eg on unix,  he.ptmp('xyz') -> /tmp/xyz
-	return he.tmpdir() .. '/' .. name
+function he.basename(path, suffix)
+	-- works like unix basename.  
+	-- if path ends with suffix, it is removed
+	-- if suffix is a list, then first matching suffix in list is removed
+	if path:match("^/+$") then return "/" end -- this is gnu basename!
+	path = striprsep(path)
+	path = path:gsub('^/+', '')
+	local dir, base = path:match("^(.+)/(.*)/?$")
+	if not base then base = path end
+	if not suffix then return base end
+	suffix = he.endswith(base, suffix)
+	if suffix then return string.sub(base, 1, #base - #suffix ) end
+	return base
 end
 
+function he.dirname(path)
+	-- works like unix dirname.  
+	-- (this assume that path is a unix path - separator is '/')
+	path = striprsep(path)
+	if path:match("^/+[^/]*$") then return "/" end
+	return path:match("^(.+)/.*$") or "."
+end
+
+function he.fileext(path)
+	-- return path extension (or empty string if none)
+	-- (this assume that path is a unix path - separator is '/')
+	-- note: when a filename starts with '.' it is not considered 
+	--    as an extension
+	local base = path:match("^.+/(.*)$") or path
+	return base:match("^.+%.(.*)$") or ""
+end
+
+function he.is_absolute_path(path)
+	-- return true if p is an absolute path
+	-- either '/something' or 'a:/something'
+	return path:match('^%a:/') or path:match('^/')
+end
+
+function he.source_line(level)
+	-- return <sourcefilename>:<current line>
+	-- level is the caller level: 
+	--    2: where source_line() is called (this is the default)
+	--    3: where the caller of source_line() is called
+	--    etc.
+	level = level or 2
+	local info = debug.getinfo(level) 
+	if not info then return "[nil]:-1" end
+	local line = string.format("%s:%s", 
+		info.short_src, info.currentline)
+--~ 		hefs.fname(info.short_src), info.currentline)
+	return line
+end
+
+function he.exitf(exitcode, fmt, ...)
+	-- write a formatted message to stderr and exit the current program 
+	-- exitcode is an integer (parameter for os.exit())
+	io.stderr:write(string.format(fmt, ...), "\n")
+	os.exit(exitcode)
+end
+
+function he.checkf(val, fmt, ...)
+	-- exit with a formatted message if val is false (exit code is 1)
+	-- or return val
+	if not val then exitf(1, fmt, ...) end
+	return val
+end
 
 
 ------------------------------------------------------------------------

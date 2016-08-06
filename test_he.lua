@@ -187,6 +187,8 @@ local test_tmpdir = he.tmpdir()
 local fn = he.ptmp('he_test_file.txt')
 he.fput(fn, 'hello'); x = he.fget(fn); assert(x == 'hello')
 
+
+
 ------------------------------------------------------------------------
 -- shell, shlines, environ -- assume execute in dir where hx_test is.
 if he.windows then
@@ -211,6 +213,55 @@ else -- assume linux
 --~ 	print(os.getenv"SHELL")
 --~	 assert(x["SHELL"] == "/bin/bash")	
 end -- if 
+
+
+-- source_line()
+a = he.source_line()
+b = he.source_line()
+c = tonumber(a:match(":(%d+)$"))
+d = tonumber(b:match(":(%d+)$"))
+assert(d == c + 1)
+
+
+
+------------------------------------------------------------------------
+-- test path functions
+
+assert(he.basename("/") == "/")
+assert(he.basename("///") == "/")
+assert(he.basename("///", "/") == "/")
+assert(he.basename("/de.f") == "de.f")
+assert(he.basename("ab/de.f") == "de.f")
+assert(he.basename("/ab/de.f") == "de.f")
+assert(he.basename("///ab/de.f") == "de.f")
+assert(he.basename("///ab/de.f/") == "de.f")
+assert(he.basename("/ab/de.f", ".f") == "de")
+assert(he.basename("ab.f/de.f", ".f") == "de")
+assert(he.basename("ab/de.f", {".g", ".f"}) == "de")
+assert(he.basename("ab/de.f", {".g"}) == "de.f")
+
+assert(he.dirname("///") == "/")
+assert(he.dirname("///abc") == "/")
+assert(he.dirname("///abc/") == "/")
+assert(he.dirname("/abc/def") == "/abc")
+assert(he.dirname("abc/def") == "abc")
+
+assert(he.fileext("") == "")
+assert(he.fileext("///") == "")
+assert(he.fileext("/a") == "")
+assert(he.fileext("/a.b") == "b")
+assert(he.fileext("/def/a.b") == "b")
+assert(he.fileext("/de.f/a.b") == "b")
+assert(he.fileext("/de.f/a") == "")
+assert(he.fileext("/de.f/") == "")
+
+assert(he.is_absolute_path("/"))
+assert(he.is_absolute_path("A:/B"))
+assert(he.is_absolute_path("/de.f/"))
+assert(not he.is_absolute_path(""))
+assert(not he.is_absolute_path("ab"))
+assert(not he.is_absolute_path("A:B"))
+assert(not he.is_absolute_path("ab/de.f/"))
 
 ------------------------------------------------------------------------
 -- test classes and objects
