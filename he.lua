@@ -1,4 +1,6 @@
--- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2016  Phil Leblanc  -- see LICENSE file
+
+
 ------------------------------------------------------------------------
 --[[	he utility module 
 
@@ -54,6 +56,8 @@ content:
   dos2unix		convert CRLF to LF
   escape_re		escape a string so it can be used as a re pattern
   repr			return a string representation of a value
+  stohex        return a hexadecimal representation of a binary string
+  hextos        parse a hex encoded string, return the string
   ntos			convert a number to a string with a thousand separator ','
   
   --misc OS functions
@@ -85,7 +89,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he090, 160806'
+he.VERSION = 'he091, 160821'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -511,6 +515,54 @@ function he.repr(x)
 	end
 end
 
+-- hex representation of binary strings
+
+function he.stohex(s, ln, sep)
+	-- stohex(s [, ln [, sep]])
+	-- return the hex encoding of string s
+	-- ln: (optional) a newline is inserted after 'ln' bytes 
+	--	ie. after 2*ln hex digits. Defaults to no newlines.
+	-- sep: (optional) separator between bytes in the encoded string
+	--	defaults to nothing (if ln is nil, sep is ignored)
+	-- example: 
+	--	stohex('abcdef', 4, ":") => '61:62:63:64\n65:66'
+	--	stohex('abcdef') => '616263646566'
+	--
+	local strf, byte = string.format, string.byte
+	if #s == 0 then return "" end
+	if not ln then -- no newline, no separator: do it the fast way!
+		return (s:gsub('.', 
+			function(c) return strf('%02x', byte(c)) end
+			))
+	end
+	sep = sep or "" -- optional separator between each byte
+	local t = {}
+	for i = 1, #s - 1 do
+		t[#t + 1] = strf("%02x%s", s:byte(i),
+				(i % ln == 0) and '\n' or sep) 
+	end
+	-- last byte, without any sep appended
+	t[#t + 1] = strf("%02x", s:byte(#s))
+	return table.concat(t)	
+end --stohex()
+
+function he.hextos(hs, unsafe)
+	-- decode an hex encoded string. return the decoded string
+	-- if optional parameter unsafe is defined, assume the hex
+	-- string is well formed (no checks, no whitespace removal).
+	-- Default is to remove white spaces (incl newlines)
+	-- and check that the hex string is well formed
+	local tonumber, char = tonumber, string.char
+	if not unsafe then
+		hs = string.gsub(hs, "%s+", "") -- remove whitespaces
+		if string.find(hs, '[^0-9A-Za-z]') or #hs % 2 ~= 0 then
+			error("invalid hex string")
+		end
+	end
+	return (hs:gsub(	'(%x%x)', 
+		function(c) return char(tonumber(c, 16)) end
+		))
+end -- hextos
 
 
 function he.ntos(n, nf)
@@ -740,6 +792,131 @@ function he.checkf(val, fmt, ...)
 	-- or return val
 	if not val then exitf(1, fmt, ...) end
 	return val
+end
+
+------------------------------------------------------------------------
+-- convenience functions for interactive usage or quick throw-away scripts
+-- (used to be in hei.lua)
+
+
+-- simplistic serialization functions (list to string, table to string)
+-- (convenient for debug display or limited use)
+
+function he.l2s(t)
+	-- returns list t as a string 
+	-- (an evaluable lua list, at least for bool, str and numbers)
+	-- !!  beware:  elements of type table are treated by t2s()  !!
+	local rl = {}
+	local repr, app, join = he.repr, he.list.app, he.list.join
+	for i, v in ipairs(t) do 
+		app(rl, (type(v) == "table") and he.t2s(v) or repr(v))
+	end
+	return '{' .. join(rl, ', ') .. '}'
+end
+
+function he.t2s(t)
+	-- return table t as a string 
+	-- (an evaluable lua table, at least for bool, str and numbers)
+	-- (!!cycles are not detected!!)
+	local repr, app, join = he.repr, he.list.app, he.list.join
+	if type(t) ~= "table" then return repr(t) end
+	if getmetatable(t) == he.list then return he.l2s(t)  end
+	local rl = {}
+	-- pairs() is no longer deterministic: several runs on same table
+	-- return elements in different order...  (lua 5.3?)
+	for i, k in ipairs(he.sortedkeys(t)) do 
+		app(rl, '[' .. repr(k) .. ']=' .. he.t2s(t[k])) 
+	end
+	return '{' .. join(rl, ', ') .. '}'
+end
+
+
+------------------------------------------------------------------------
+-- display / debug functions
+
+-- display any object
+
+function he.pp(...)
+	local repr = he.repr
+	for i,x in ipairs {...} do
+		if type(x) == 'table' then 
+			he.printf("pp: %s   metatable: %s",  
+						tostring(x), tostring(getmetatable(x)))						
+			local kl = he.sortedkeys(x)
+			for i,k in ipairs(kl) do
+				he.printf("	| %s:  %s", repr(k), repr(x[k]))
+			end
+		else he.printf("pp: %s", he.repr(x))
+		end
+	end
+end
+
+function he.ppl(lst)  print(he.l2s(lst)) end
+function he.ppt(lst)  print(he.t2s(lst)) end
+function he.ppk(dic)  print(he.l2s(he.sortedkeys(dic))) end
+
+function he.printf(...) print(string.format(...)) end
+function he.errf(...) error(string.format(...)) end
+
+--
+--~ he.prsep_ch = '-'  -- character used for separator line
+--~ he.prsep_ln = 60  -- length of separator line
+--~ --
+--~ function he.prsep(...) 
+--~ --- print a separator line, then print arguments
+--~ 	print(string.rep(he.prsep_ch, he.prsep_ln)) 
+--~ 	if select('#', ...) > 0  then  print(...)  end
+--~ end
+
+------------------------------------------------------------------------
+-- elapsed time -- is os.clock() measuring elapsed or cpu time? keep it?
+
+local _hei_load_clock = os.clock()
+local _hei_load_time = os.time()
+
+function he.elapsed()
+	-- return elapsed time since 'he' was loaded (in seconds)
+	-- and cpu time ... or whatever os.clock() refers to :-)
+	return (os.time() - _hei_load_time), (os.clock() - _hei_load_clock)
+end
+
+
+function he.print_elapsed(msg) 
+-- display elapsed time
+	local duration, cpu = he.elapsed()
+	print(msg or 'Elapsed:', duration, cpu)  
+end
+
+------------------------------------------------------------------------
+-- extend environment
+
+function he.extend_string()
+	-- extend string module with he string functions
+	string.startswith  =  he.startswith
+	string.endswith  =  he.endswith
+	string.split  =  he.split
+	string.lines = he.lines
+	string.lstrip  =  he.lstrip
+	string.rstrip  =  he.rstrip
+	string.strip  =  he.strip
+	string.stripnl  =  he.stripnl
+	string.stripeol  =  he.stripeol
+	string.repr  =  he.repr
+	string.stohex  =  he.stohex
+	string.hextos  =  he.hextos
+end
+
+function he.interactive()
+	he.extend_string()
+	-- export he to global env
+	_G.he = nil
+	_G.he = he
+	-- export some he defs to global env
+	_G.pp, _G.ppl, _G.ppt = he.pp, he.ppl, he.ppt
+	_G.strf, _G.printf = string.format, he.printf
+	_G.list = he.list
+	print(he.VERSION)
+	return he
 end
 
 

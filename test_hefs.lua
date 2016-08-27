@@ -1,7 +1,7 @@
 -- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 
-do -- hefs unit tests
+-- hefs unit tests
 
 local he = require "he"
 local hefs = require "hefs"
@@ -9,9 +9,7 @@ local list = he.list
 local app, join = list.app, list.join
 
 -- debug functions
-require 'hei'
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
-
 local sep, resep = he.sep, he.resep
 
 -- test path functions
@@ -84,4 +82,8 @@ assert(list.find_elem(hefs.findfiles(),
 hefs.popd()
 assert(hefs.currentdir() == curdir)
 
-end -- do ut_hefs
+--cleanup test dir and files
+hefs.rmdirs(tmp) 
+
+------------------------------------------------------------------------
+return true

@@ -1,6 +1,7 @@
--- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
-------------------------------------------------------------------------
---[[
+-- Copyright (c) 2016  Phil Leblanc  -- see LICENSE file
+
+
+--[[ 
 
 hefs - file system functions (path, file, directory ...) 
 
@@ -22,25 +23,15 @@ local app, join = list.app, list.join
 ------------------------------------------------------------------------
 local hefs = {}  -- the hefs module
 
+he.fs = hefs
+
 ------------------------------------------------------------------------
 -- pathname functions
 
+-- legacy definitions
+hefs.basename = he.basename
+hefs.dirname = he.dirname
 
-function hefs.basename(path, suffix)
-	-- works like unix basename.  
-	-- if path ends with suffix, it is removed
-	-- if suffix is a list, then first matching suffix in list is removed
-	local dir, base = path:match("^(.+)/(.*)$")
-	if not base then base = path end
-	if not suffix then return base end
-	suffix = he.endswith(base, suffix)
-	if suffix then return string.sub(base, 1, #base - #suffix ) end
-	return base
-end
-
-function hefs.dirname(path)
-	return path:match("^(.+)/.*$") or ""
-end
 
 function hefs.makepath(dirname, name, ext)
 	-- returns a path made with a dirname, a filename and an optional ext.
@@ -141,10 +132,8 @@ function hefs.pjoin(a, b)
 	end
 end
 
-
 ------------------------------------------------------------------------
 -- functions using lfs 
-
 
 -- lfs synonyms
 hefs.chdir = lfs.chdir
@@ -248,7 +237,7 @@ function hefs.dirs(dp, pat)
 end
 
 function hefs.findfiles(dp, pat)
-	-- find files in dp and subdirs,  matching optional glob pattern pat
+	-- find files in dp and subdirs, matching optional glob pattern pat
 	return hefs.find(dp, true, hefs.isfile, pat)
 end
 
@@ -260,7 +249,7 @@ end
 function hefs.mkdirs(pn)
 	-- recursive mkdir. make sure pn and all parent dirs exists.
 	-- doesnt fail if pn already exists and is a dir.
-	-- (equivalent to mkdir -p)
+	-- (equivalent to unix: mkdir -p)
 	-- error() if  cannot create the directories
 	if hefs.isdir(pn) then return true end
 	if hefs.fexists(pn) then
@@ -291,16 +280,16 @@ function hefs.rmdirs(pn)
 	for i, dname in ipairs(hefs.dirs(pn)) do
 		hefs.rmdirs(dname)
 	end
-	return hefs.rmdir(pn)
+	hefs.rmdir(pn)
 end
 
 --
 local _dirstack = { }
 --
 function hefs.pushd(dir, dirstack)
--- push/pop dirs  usage:
--- hefs.pushd('/a/b'); ...do smtg.... hefs.popd()
---
+	-- push/pop dirs  usage:
+	-- hefs.pushd('/a/b'); ...do smtg.... hefs.popd()
+	-- 
 	dirstack = dirstack or _dirstack
 	list.app(dirstack, hefs.currentdir())
 	hefs.chdir(dir)
@@ -314,6 +303,6 @@ function hefs.popd(dirstack)
 	return prevdir
 end
 
-
 ------------------------------------------------------------------------
 return hefs
+

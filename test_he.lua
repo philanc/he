@@ -3,22 +3,25 @@
 
 do -- he core unit tests
 
+--~ print(arg[-1], arg[0])
+
 local he = require 'he'
 assert(he)
+
+-- make sure we test the correct version
+assert(he.VERSION:match("^he091,"))
 
 -- check that _G and string are not extended
 assert(not _G.he)
 assert(not string.split)
 
+-- some local defs for all the tests
 local list = he.list
-
--- add some debug functions
-require 'hei'
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
-
 --
 local a, b, c, d, f, k, l, s, t, u, v, x, y
 
+------------------------------------------------------------------------
 -- test string functions
 
 assert(he.startswith('123 456', ''))
@@ -47,9 +50,27 @@ assert(he.rstrip(s) == '\tabc')
 assert(he.lstrip(s) == 'abc  \r\n  ')
 assert(he.lstrip('\r\r\n\na') == 'a')
 
+
 ------------------------------------------------------------------------
--- test list functions
---~ list = he.list --110113 list defined in globals by he.
+-- test classes and objects
+--	130323 'class' simplification' !!
+c = he.class()
+function c:init(val)  self.a = val ; return self end
+function c:get() return self.a end
+x = c():init('hello')
+assert(x:get() == 'hello')
+assert(getmetatable(x) == c)
+assert(getmetatable(c) == he.class)
+d = he.class(c)
+--
+local fifo = he.class()
+function fifo:push(x) table.insert(self, 1, x) end
+function fifo:pop() return table.remove(self) end
+local f = fifo(); f:push(11); f:push(22); assert(f:pop() == 11)
+
+------------------------------------------------------------------------
+-- test list functions and list objects
+
 a = {'hello', 22}
 b = {'hello', 22} --do not change a and b!!
 --contains
@@ -86,7 +107,7 @@ assert(list.check_elems(a, function(v) return v<55 end))
 assert(not list.find_elem(a, function(x) return type(x)=='string' end))
 -- list iterator elems()
 b = {} ; for e in list.elems(a) do list.app(b, e) end ;  assert(he.equal(a,b))
--- "list of objs" functions
+
 t = list()
 t:app{key=222, name='vic', age=33}
 t:app{key='u111', name='paul', age=47}
@@ -99,9 +120,58 @@ assert(#b == 2 and b[1].age == 47)
 --~ b = t:sorted(he.reccmp'name') ; assert(#b == 3 and b[3].age == 33)
 b = t:map(function(e) return e.age * 2 end) ; assert(b[3] == 24)
 
+-- test list objects
+a = list(); assert(#a == 0)
+a = list{}; assert(#a == 0)
+a = list{11,33,22}; assert(#a == 3)
+b = list()
+--~ pp('list', list)
+--~ pp('a', a)
+for i,v in ipairs(a:sorted()) do 
+	b:app(v) 
+end
+assert(b:join('') == "112233")
+
+-- test list-based set functions
+a = list();  b = a:uniq();  assert(b:equal{})
+a = list{11,22,11,11,33,11,22,22}
+b = a:uniq();  assert(b:equal{11, 22, 33})
+b:uapp(55) ; b:uapp(66) ; b:uapp(66) ; b:uapp(55) ; 
+assert(b:equal{11, 22, 33, 55, 66})
+b:uextend{11,11,66,66,11};  assert(b:equal{11, 22, 33, 55, 66})
+b:uextend{};  assert(b:equal{11, 22, 33, 55, 66})
+a:urem(22);  assert(a:equal{11,11,11,33,11,22,22})
+b:urem(77);  assert(b:equal{11, 22, 33, 55, 66})
+
+-- l2s, t2s
+l = {1,2}
+d = {a=11, b='bb'}
+assert(he.l2s(l) == "{1, 2}")
+assert(he.t2s(d) == '{["a"]=11, ["b"]="bb"}')
+
+
 ------------------------------------------------------------------------
 -- test table functions
 
+-- count
+a = {}; assert(he.count(a) == 0)
+a.x = 11; a.y = 22; assert(he.count(a) == 2)
+assert(he.count(a, function(v) return v>15 end) == 1)
+assert(he.count(a, function(v) return list.has({11,22}, v) end) == 2)
+assert(he.count(a, function(v) return list.has({22, 'y'}, v) end) == 1)
+assert(he.count(a, function(v) return list.has({'a', 'y'}, v) end) == 0)
+
+-- keys, sortedkeys
+b = list(); for k,v in pairs(a) do b:app(k) end
+assert(b:has('x') and b:has('y'))
+b = list(); for i,k in ipairs(list(he.keys(a))) do b:app(k) end
+assert(b:has('x') and b:has('y'))
+b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:app(k) end
+assert(b:join('') == "xy")
+b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:app(a[k]) end
+assert(b:join('') == "1122")
+
+-- incr
 t = {}
 assert(he.incr(t, 'x') == 1)
 assert(he.incr(t, 'x') == 2)
@@ -118,17 +188,11 @@ assert(he.equal(he.list{'y'}, he.keys(d, function(v) return v==2 end)))
 assert(he.count(d, function(v) return v==1 end), 1)
 assert(he.count(d, function(v) return v>10 end), 0)
 
--- he.update()
+-- update
 d = {a=11, b=22};  he.update(d, {c=33, b=99})
 assert(he.count(d) == 3 and d.a == 11 and d.b == 99 and d.c == 33)
 assert(he.equal(d, he.update(d, {})))
 assert(he.equal(d, he.update(d, d)))
-
-t = list()
-t:app{key=222, name='vic', age=33}
-t:app{key='u111', name='paul', age=47}
-t:app{key=333, name='mary', age=12}
--- tmap / tmapl tests removed
 
 
 
@@ -183,50 +247,10 @@ assert(he.isodate(he.iso2time("20090707_1331")) == "20090707T133100")
 assert(he.isodate(he.iso2time("20090707-1331")) == "20090707T133100")
 assert(he.isodate(he.iso2time("20090707")) == "20090707T000000")
 
-local test_tmpdir = he.tmpdir()
-local fn = he.ptmp('he_test_file.txt')
-he.fput(fn, 'hello'); x = he.fget(fn); assert(x == 'hello')
-
-
-
 ------------------------------------------------------------------------
--- shell, shlines, environ -- assume execute in dir where hx_test is.
-if he.windows then
---	print('Platform is Windows.')
-	x = he.shell('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
-	assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
-	x = he.shlines('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
-	assert(he.endswith(x[1], 'he_test_file.txt'))
---~	 x = he.environ()
---~	 assert(x["PROMPT"] == "$P$G")	
-else -- assume linux
---~	 print('Platform is Linux.')
-	x = he.shell('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
-	assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
-	x = he.shlines('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
-	assert(he.endswith(x[1], 'he_test_file.txt'))
+-- test pathname functions
 
--- removed environ(), 130324 
---~	 x = he.environ()
--- assume env var SHELL is defined and is /bin/bash
---~ 	print(x["SHELL"] )
---~ 	print(os.getenv"SHELL")
---~	 assert(x["SHELL"] == "/bin/bash")	
-end -- if 
-
-
--- source_line()
-a = he.source_line()
-b = he.source_line()
-c = tonumber(a:match(":(%d+)$"))
-d = tonumber(b:match(":(%d+)$"))
-assert(d == c + 1)
-
-
-
-------------------------------------------------------------------------
--- test path functions
-
+-- basename
 assert(he.basename("/") == "/")
 assert(he.basename("///") == "/")
 assert(he.basename("///", "/") == "/")
@@ -240,12 +264,16 @@ assert(he.basename("ab.f/de.f", ".f") == "de")
 assert(he.basename("ab/de.f", {".g", ".f"}) == "de")
 assert(he.basename("ab/de.f", {".g"}) == "de.f")
 
+-- dirname
 assert(he.dirname("///") == "/")
 assert(he.dirname("///abc") == "/")
 assert(he.dirname("///abc/") == "/")
 assert(he.dirname("/abc/def") == "/abc")
 assert(he.dirname("abc/def") == "abc")
+assert(he.dirname("a:/bc") == "a:")
+--~ assert(he.dirname("a:/") == "a:/")  -- not supported 
 
+-- fileext
 assert(he.fileext("") == "")
 assert(he.fileext("///") == "")
 assert(he.fileext("/a") == "")
@@ -255,78 +283,41 @@ assert(he.fileext("/de.f/a.b") == "b")
 assert(he.fileext("/de.f/a") == "")
 assert(he.fileext("/de.f/") == "")
 
-assert(he.is_absolute_path("/"))
-assert(he.is_absolute_path("A:/B"))
-assert(he.is_absolute_path("/de.f/"))
-assert(not he.is_absolute_path(""))
-assert(not he.is_absolute_path("ab"))
-assert(not he.is_absolute_path("A:B"))
-assert(not he.is_absolute_path("ab/de.f/"))
+-- is_absolute_path
+assert(he.is_absolute_path "/")
+assert(he.is_absolute_path "/abc/d")
+assert(he.is_absolute_path "f:/abc/d")
+assert(he.is_absolute_path "F:/abc/d")
+assert(not he.is_absolute_path "")
+assert(not he.is_absolute_path "abc/d")
+assert(not he.is_absolute_path "f:abc/d")
+
 
 ------------------------------------------------------------------------
--- test classes and objects
---	130323 'class' simplification' !!
-c = he.class()
-function c:init(val)  self.a = val ; return self end
-function c:get() return self.a end
-x = c():init('hello')
-assert(x:get() == 'hello')
-assert(getmetatable(x) == c)
-assert(getmetatable(c) == he.class)
-d = he.class(c)
---
-local fifo = he.class()
-function fifo:push(x) table.insert(self, 1, x) end
-function fifo:pop() return table.remove(self) end
-local f = fifo(); f:push(11); f:push(22); assert(f:pop() == 11)
+-- test file and os functions
 
-------------------------------------------------------------------------
--- test list objects
-a = list(); assert(#a == 0)
-a = list{}; assert(#a == 0)
-a = list{11,33,22}; assert(#a == 3)
-b = list()
---~ pp('list', list)
---~ pp('a', a)
-for i,v in ipairs(a:sorted()) do 
-	b:app(v) 
-end
-assert(b:join('') == "112233")
+local test_tmpdir = he.tmpdir()
+local fn = he.ptmp('he_test_file.txt')
+--~ print('tmp file path:', fn)
+he.fput(fn, 'hello'); x = he.fget(fn); assert(x == 'hello')
 
--- test list-based set functions
-a = list();  b = a:uniq();  assert(b:equal{})
-a = list{11,22,11,11,33,11,22,22}
-b = a:uniq();  assert(b:equal{11, 22, 33})
-b:uapp(55) ; b:uapp(66) ; b:uapp(66) ; b:uapp(55) ; 
-assert(b:equal{11, 22, 33, 55, 66})
-b:uextend{11,11,66,66,11};  assert(b:equal{11, 22, 33, 55, 66})
-b:uextend{};  assert(b:equal{11, 22, 33, 55, 66})
-a:urem(22);  assert(a:equal{11,11,11,33,11,22,22})
-b:urem(77);  assert(b:equal{11, 22, 33, 55, 66})
+-- shell, shlines
+if he.windows then
+--	print('Platform is Windows.')
+	x = he.shell('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
+	assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
+	x = he.shlines('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
+	assert(he.endswith(x[1], 'he_test_file.txt'))
+else -- assume linux
+--	 print('Platform is Linux.')
+	x = he.shell('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
+	assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
+	x = he.shlines('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
+	assert(he.endswith(x[1], 'he_test_file.txt'))
+end -- if 
 
-------------------------------------------------------------------------
--- test table functions and list  objects
-a = {}; assert(he.count(a) == 0)
-a.x = 11; a.y = 22; assert(he.count(a) == 2)
-assert(he.count(a, function(v) return v>15 end) == 1)
-assert(he.count(a, function(v) return list.has({11,22}, v) end) == 2)
-assert(he.count(a, function(v) return list.has({22, 'y'}, v) end) == 1)
-assert(he.count(a, function(v) return list.has({'a', 'y'}, v) end) == 0)
-
-b = list(); for k,v in pairs(a) do b:app(k) end
-assert(b:has('x') and b:has('y'))
-b = list(); for i,k in ipairs(list(he.keys(a))) do b:app(k) end
-assert(b:has('x') and b:has('y'))
-b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:app(k) end
-assert(b:join('') == "xy")
-b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:app(a[k]) end
-assert(b:join('') == "1122")
--- 
--- l2s, t2s
-l = {1,2}
-d = {a=11, b='bb'}
-assert(he.l2s(l) == "{1, 2}")
-assert(he.t2s(d) == '{["a"]=11, ["b"]="bb"}')
+-- cleanup the tmp file
+assert(os.remove(fn))
 
 
 ------------------------------------------------------------------------
