@@ -1,6 +1,5 @@
 -- Copyright (c) 2016  Phil Leblanc  -- see LICENSE file
 
-
 ------------------------------------------------------------------------
 --[[	he utility module 
 
@@ -84,12 +83,17 @@ content:
   fileext       return the extension of a file path
   is_absolute_path  return true if a path is absolute
 
+  ---
+  
+  160828  
+    fixed pp: iterate on all args even if some are nil
+	fixed repr: repr(nil) is 'nil', not '"nil"')
 
 ]]
 
 local he = {}  -- the he module
 
-he.VERSION = 'he091, 160821'
+he.VERSION = 'he091, 160828'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -508,7 +512,7 @@ end
 -- string representations
 
 function he.repr(x) 
-	if type(x) == 'number' or type(x) == 'boolean' then
+	if type(x) == 'number' or type(x) == 'boolean' or type(x) == 'nil' then
 		return tostring(x)
 	else
 		return string.format("%q", tostring(x)) 
@@ -838,7 +842,8 @@ end
 
 function he.pp(...)
 	local repr = he.repr
-	for i,x in ipairs {...} do
+	for i = 1, select('#', ...) do
+		x = select(i, ...)
 		if type(x) == 'table' then 
 			he.printf("pp: %s   metatable: %s",  
 						tostring(x), tostring(getmetatable(x)))						
