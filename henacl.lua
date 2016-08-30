@@ -10,11 +10,6 @@ henacl - complement tweetnacl C lib
 KEYSZ = 32
 NONCESZ = 24
 
--- convenience functions 
-
-easy_secretbox       wraps secretbox, handle the leading null bytes
-easy_secretbox_open  wraps secretbox_open
-
 -- secret key authenticated encryption (salsa20+poly1305) 
 -- it wraps secretbox()
 
@@ -39,60 +34,28 @@ pkdecrypt_block    | with the same session key
 ]]
 
 local he = require "he"
-local henacl = require "tweetnacl"
-
-local null32 = ('\0'):rep(32)
-local null16 = ('\0'):rep(16)
-local null8 = ('\0'):rep(8)
+local henacl = require "luatweetnacl"
 
 -- key and nonce sizes
 henacl.KEYSZ = 32
 henacl.NONCESZ = 24
 
--- comfort functions
-
-function henacl.easy_secretbox(pt, nonce, k)
-	-- same as nacl secretbox(), but take care of the leading 32 null 
-	-- bytes constraint, and remove the leading 16 null bytes in
-	-- the encrypted text
-	pt = null32 .. pt
-	local et = henacl.secretbox(pt, nonce, k)
-	et = et:sub(17)
-	return et
-end
-
-function henacl.easy_secretbox_open(et, nonce, k)
-	-- same as nacl secretbox_open(), but take care of the leading 
-	-- 32 and 16 null bytes constraint
-	et = null16 .. et -- append the leading 16 null bytes
-	local pt = henacl.secretbox_open(et, nonce, k)
-	-- remove the leading 32 null bytes
-	if pt then return pt:sub(33) else return nil end
-end
-
 function henacl.encrypt(pt, k)
-	-- wraps nacl secretbox. takes care of nonce and leading null bytes
-	-- generates a 16-byte random nonce padded with 8 null bytes
-	local nonce = henacl.randombytes(16)
-	local nonce0 = nonce .. null8 -- pad to make it 24 bytes
-	pt = null32 .. pt -- add the 32 leading nulls
-	local et = henacl.secretbox(pt, nonce0, k)
-	-- replace the leading 16 null bytes with the nonce
-	-- (cannot use gsub because nonce may contain '%' chars...)
-	et = nonce .. et:sub(17)
+	-- wraps nacl secretbox. takes care of nonce 
+	-- generates a 24-byte random nonce 
+	local nonce = henacl.randombytes(24)
+	local et = henacl.secretbox(pt, nonce, k)
+	et = nonce .. et
 	return et
 end
 
 function henacl.decrypt(et, k)
 	-- decrypt a text encrypted with nacl.encrypt
-	-- wraps nacl secretbox_open. takes care of nonce and leading null bytes
-	local nonce = et:sub(1, 16)
-	local nonce0 = nonce .. null8
-	local pat = "^" .. string.rep(".", 16)
-	et = et:gsub(pat, null16)
-	local pt = henacl.secretbox_open(et, nonce0, k)
-	-- remove the leading 32 null bytes
-	if pt then return pt:sub(33) else return nil end
+	-- wraps nacl secretbox_open. takes care of nonce.
+	local nonce = et:sub(1, 24)
+	et = et:sub(25)
+	local pt, msg = henacl.secretbox_open(et, nonce, k)
+	return pt, msg
 end
 
 function henacl.pkencrypt(pt, bpk)
@@ -101,7 +64,7 @@ function henacl.pkencrypt(pt, bpk)
 	local apk, ask = henacl.box_keypair()
 	local nonce = apk:sub(1, 24)
 	local k = henacl.box_beforenm(bpk, ask)
-	local et = henacl.easy_secretbox(pt, nonce, k)
+	local et = henacl.secretbox(pt, nonce, k)
 	return apk .. et
 end
 
@@ -112,7 +75,7 @@ function henacl.pkdecrypt(et, bsk)
 	local nonce = string.sub(apk, 1, 24) -- 24 bytes
 	et = string.sub(et, 33) -- everything after the first 32 bytes
 	local k = henacl.box_beforenm(apk, bsk)
-	return henacl.easy_secretbox_open(et, nonce, k)
+	return henacl.secretbox_open(et, nonce, k)
 end
 
 function henacl.pkencrypt_init(bpk)
@@ -130,7 +93,7 @@ function henacl.pkencrypt_block(ptb, nonce, k)
 	-- return encrypted block and updated nonce
 	assert(#nonce == 24, "bad nonce length")
 	assert(#k == 32, "bad session key length")
-	local etb = henacl.easy_secretbox(ptb, nonce, k)
+	local etb = henacl.secretbox(ptb, nonce, k)
 	nonce = henacl.sha512(nonce):sub(1,24) -- update the nonce for next block
 	return etb, nonce
 end
@@ -148,7 +111,7 @@ function henacl.pkdecrypt_block(etb, nonce, k)
 	-- decrypt an encrypted block 'etb'
 	-- update nonce for the next block
 	-- return decrypted block and updated nonce
-	local ptb, msg = henacl.easy_secretbox_open(etb, nonce, k)
+	local ptb, msg = henacl.secretbox_open(etb, nonce, k)
 	if not ptb then return nil, msg end
 	nonce = henacl.sha512(nonce):sub(1,24) -- update the nonce for next block
 	return ptb, nonce
