@@ -85,6 +85,8 @@ content:
 
   ---
   
+  160830
+	fixed compare_any, sortedkeys
   160828  
     fixed pp: iterate on all args even if some are nil
 	fixed repr: repr(nil) is 'nil', not '"nil"')
@@ -137,7 +139,7 @@ function he.compare_any(x, y)
 	-- order: nil < any number < any string < any other object
 	local tx, ty = type(x), type(y)
 	if tx == ty then 
-		if tx == 'string' or 'number' then return x < y 
+		if tx == 'string' or tx == 'number' then return x < y 
 		else return true -- ignore order on tables and others
 		end
 	end
@@ -384,7 +386,7 @@ function he.sortedkeys(t, pred, ...)
 	-- sort works with heterogeneous keys (use compare_any) 
 	--   in case of performance issue, simply use sorted(keys(. . .)) )
 	local kt = he.keys(t, pred, ...); 
-	table.sort(kt, compare_any); 
+	table.sort(kt, he.compare_any); 
 	return kt 
 end
 

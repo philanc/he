@@ -170,6 +170,10 @@ b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:app(k) end
 assert(b:join('') == "xy")
 b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:app(a[k]) end
 assert(b:join('') == "1122")
+-- check can sort heterogeneous keys
+t = {a=11, [123]=111, xcv=222, [3488]=333}
+b = he.sortedkeys(t)
+assert(he.equal(b, {123, 3488, 'a', 'xcv'}))
 
 -- incr
 t = {}
@@ -198,6 +202,7 @@ assert(he.equal(d, he.update(d, d)))
 
 ------------------------------------------------------------------------
 -- test misc functions
+
 -- repr
 assert(he.repr(123) == [[123]])
 assert(he.repr(123) == [[123]])
