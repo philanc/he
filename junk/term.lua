@@ -1,9 +1,14 @@
--- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2016  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 --[[	term.lua
 
-terminal utility module (based on the ltbox library)
+terminal utility module 
 
+(require the slua linenoise binding)
+
+
+good ref:   ("CSI" is "<esc>[")
+https://en.wikipedia.org/wiki/ANSI_escape_code
 
 ]]
 
@@ -11,7 +16,7 @@ terminal utility module (based on the ltbox library)
 ------------------------------------------------------------------------
 -- some local definitions
 
-local lt = require 'ltbox'
+local he = require 'he'
 
 local strf = string.format
 local byte, char = string.byte, string.char
@@ -20,37 +25,47 @@ local spack, sunpack = string.pack, string.unpack
 local app, concat = table.insert, table.concat
 
 ------------------------------------------------------------------------
+-- following definitions (from output to restore) are
+-- based on public domain code by Luiz Henrique de Figueiredo 
+-- http://lua-users.org/lists/lua-l/2009-12/msg00942.html
 
+local out = io.write
 
-local colors = {
-	default = 0,
-	-- foreground colors:             fgcolor << 32 
-	black     = 0x000100000000,
-	red       = 0x000200000000,
-	green     = 0x000300000000,
-	yellow    = 0x000400000000,
-	blue      = 0x000500000000,
-	magenta   = 0x000600000000,
-	cyan      = 0x000700000000,
-	white     = 0x000800000000,
-	-- backgroud colors:              bgcolor << 48
-	bgblack   = 0x0001000000000000,
-	bgred     = 0x0002000000000000,
-	bggreen   = 0x0003000000000000,
-	bgyellow  = 0x0004000000000000,
-	bgblue    = 0x0005000000000000,
-	bgmagenta = 0x0006000000000000,
-	bgcyan    = 0x0007000000000000,
-	bgwhite   = 0x0008000000000000,
-	
-	-- attributes
-	bold      = 0x010000000000,      -- 0x100 << 32
-	underline = 0x020000000000,      -- 0x200 << 32
-	reverse   = 0x040000000000,      -- 0x400 << 32
-	bgbold    = 0x0100000000000000,  -- 0x100 << 48
+term={
+	output = out,
+	clear = function () out("\027[2J") end,
+	cleareol = function () out("\027[K") end,
+	golc = function (l,c) out("\027[",l,";",c,"H") end,
+	up = function (n) out("\027[",n or 1,";","A") end,
+	down = function (n) out("\027[",n or 1,";","B") end,
+	right = function (n) out("\027[",n or 1,";","C") end,
+	left = function (n) out("\027[",n or 1,";","D") end,
+	color = function (f,b,m) 
+				if m then out("\027[",f,";",b,";",m,"m")
+				elseif b then out("\027[",f,";",b,"m")
+				else out("\027[",f,"m") end 
+			end,
+	-- save/restore cursor position
+	save = function () out("\027[s") end,
+	restore = function () out("\027[u") end,
+	-- reset terminal (clear and reset default colors)
+	reset = function () out("\027c") end,
+
 }
 
-local keys = {
+term.colors = {
+	default = 0,
+	-- foreground colors
+	black = 30, red = 31, green = 32, yellow = 33, 
+	blue = 34, magenta = 35, cyan = 36, white = 37,
+	-- backgroud colors
+	bgblack = 40, bgred = 41, bggreen = 42, bgyellow = 43,
+	bgblue = 44, bgmagenta = 45, bgcyan = 46, bgwhite = 47,
+	-- attributes
+	reset = 0, normal= 0, bright= 1, bold = 1, reverse = 7,
+}
+
+term.keys = {
 	escape         = 0x1b,
 	kf1            = 0xffff,  -- 0xffff-0
 	kf2            = 0xfffe,  -- 0xffff-1
@@ -84,134 +99,48 @@ local keys = {
 	mod_alt        = 0x01,
 }
 
-local function setcursor(cx, cy)
-	-- set cursor at screen position cx, cy 
-	-- (topleft is (1,1))
-	-- (0,0) => hide cursor
-	lt.setcursor(cx, cy)
-end
-
-local function putsubstring(s, i, j, x, y, xm, attr, fill)
-	-- put part of a string on screen at coordinates x, y
-	-- i: index of first byte to display in string
-	-- j: index of last byte to display in string
-	--    contrary to string.sub, negative values for i, j are not 
-	--    accepted, except j == -1 which is equivalent to the string length)
-
-	-- x, y: column, line where the string should be displayed
-	-- xm: right margin - chars are put on screen between x and at most xm
-	-- attr: cells attribute (default to 0)
-	-- fill: if true, fill the rest of the row (up to xm) with spaces
-	-- return nexti, nextx
-	--    nexti: index of the first non-displayed char in string 
-	--           or 0 if none (at end of string)
-	--    nextx: horizontal index of first non-filled cell on screen
-	--
-	attr = attr or 0
-	if (j == -1) or (j > #s) then j = #s end
-	while i <= j do
-		-- get next char in s  (some utf8 magic here in the future :-)
-		ch = byte(s, i); i = i+1
-		if x > xm then break end
-		lt.putcell(x, y, ch | attr)
-		x = x+1
-	end
-	-- process fill now
-	if fill then 
-		while x <= xm do
-			lt.putcell(x, y, 32 | attr)
-			x = x+1
-		end
-	end
-	return i, x
-end --putsubstring
-		
-local function putstring(s, x, y, xm, attr, fill)
-	-- put a string on screen at coordinates x, y
-	-- xm: right margin - chars are put on screen between x and at most xm
-	-- attr: cells attribute (default to 0)
-	-- fill: if true, fill the rest of the row (up to xm) with spaces
-	-- return nexti, nextx
-	--    nexti: index of the first non-displayed char in string 
-	--           or 0 if none (at end of string)
-	--    nextx: horizontal index of first non-filled cell on screen
-	return putsubstring(s, 1, -1, x, y, xm, attr, fill)
-end
-
-local function newbox(x, y, xm, ym, attr, selattr)
-	-- initialize a "box" that represent a region on the screen
-	-- x, y: top left corner of the box
-	-- xm, ym: bottom right corner of the box
-	--     (caller must ensure that the box fits with the screen 
-	--     dimensions - not checked here)
-	-- attr: cells attribute for all lines in the box (default to 0)
-	-- selattr: attribute used to highlight cells in the box 
-	--     (defaults to reverse)
-	local box = {
-		x = x, 
-		y = y,
-		xm = xm, 
-		ym = ym,
-		attr = attr or 0,
-		selattr = selattr or colors.reverse,
-	}
-	return box
-end -- newbox
-
-local function putfiller(box, filler)
-	if not filler then 
-		filler = box.attr
-	elseif filler & 0xffffffff00000000 == 0 then 
-		filler = filler | box.attr 
-	end
-	for y = box.y, box.ym do
-		for x = box.x, box.xm do
-			lt.putcell(x, y, filler)
-		end
+term.scrsize = function()
+	-- return screen dimensions (number of lines, number of columns
+	local s, e = he.shell("stty size")
+	if e == 0 then
+		local l, c = s:match("(%d+)%s+(%d+)")
+		return l, c
+	else
+		return nil, "term: stty size error"
 	end
 end
+------------------------------------------------------------------------
+--[[
+he.interactive()
+ln = require"linenoise"
+pp(ln)
+if not ln.isatty(1) then exit(1) end
+col = term.colors
 
-local function putlist(box, sl, idx, seloffset)
-	-- display a list of string on screen
-	-- box: the box in which the list is displayed (see newbox())
-	-- sl: a list of strings
-	-- idx: index in sl of the first item to display
-	-- seloffset: if defined, this is the line to highlight
-	--     relative to idx (seloffset = 0 => highlight the top line)
-	-- end of lines and empty lines at bottom are filled with space
-	local lineattr 
-	-- index of the line to highlight
-	local idxhi = (seloffset) and (idx+seloffset) or -1 
-	local attr, selattr = box.attr, box.selattr
-	local s
-	for yy = box.y, box.ym do
-		lineattr = (idx == idxhi) and selattr or attr
-		if idx > #sl then s = "" else s = sl[idx] end
-		putstring(s, box.x, yy, box.xm, lineattr, true)
-		idx = idx+1
-	end
-end -- putlist
+term.color(col.white, col.bgblack)
+term.color(col.normal)
 
-local function getch(evt)
-	-- return a unique code combining evt.ch, evt.key and evt.mod
-	--!!! bad! key codes may overlap with unicode in utf8 mode.... :-(
-	local code = (evt.ch ~= 0) and evt.ch or evt.key
-	-- process mod
-	if evt.mod > 0 then code = code | 0x10000 end
-	return code
-end
+term.clear()
+term.golc(1,1)
+term.output(term.scrsize())
+term.golc(3, 20)
+--~ term.color(col.white, col.bgred, col.reverse)
+--~ term.color(col.reverse)
+--~ term.color(col.red, col.bold)
+term.color(col.red)
+term.output(he.isodate(), "\t\t!!!")
+term.output("\r")
+term.output("XXZZ\n")
+--~ term.color(col.white, col.bgblack, col.normal)
+--~ term.color(col.normal)
+term.color(col.normal)
+--~ term.reset()
+--~ term.color(col.yellow, col.reverse)
+--~ term.output(he.isodate())
+
+-- ]]
+
 
 ------------------------------------------------------------------------
-return  { -- term module
-	setcursor = setcursor,
-	putsubstring = putsubstring,
-	putstring = putstring,
-	newbox = newbox,
-	putlist = putlist,
-	putfiller = putfiller,
-	getch = getch,
-	--
-	keys = keys,
-	colors = colors,
-	--
-	}
+return term
+
