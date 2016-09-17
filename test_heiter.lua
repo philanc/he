@@ -56,8 +56,8 @@ assert(io.type(fh) == 'file')
 assert(fh:close())
 
 
--- match()
-l = iter.flines('zz'):map(string.upper):match("FS"):first()
+-- matching
+l = iter.flines('zz'):map(string.upper):matching("FS"):first()
 assert(l == [[REQUIRE "TEST_HEFS"]])
 
 

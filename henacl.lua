@@ -3,7 +3,7 @@
 
 --[[ 
 
-henacl - complement tweetnacl C lib
+henacl - complement the luatweetnacl C binding to the NaCl crypto library
 
 -- some constants
 
@@ -34,12 +34,17 @@ pkdecrypt_block    | with the same session key
 ]]
 
 local he = require "he"
-he.interactive()
+--~ he.interactive()
+
 ------------------------------------------------------------------------
--- compatibility with former tweetnacl v0.2 in wslua
+-- compatibility with former tweetnacl binding (v0.2)
 --
--- when (s)lua supports luatweetnacl, all this block will be replaced 
--- with the line:
+-- tweetnacl is a binding of the raw NaCl library
+-- it has been superseeded with luatweetnacl which hides some
+-- NaCl quirks (leading null bytes constraints)
+--
+-- as soon as luatweetnacl is available and used on all platforms, 
+-- all the if block below will be replaced with the line:
 --       local henacl = require "luatweetnacl"
 --
 local henacl

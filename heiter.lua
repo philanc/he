@@ -1,16 +1,66 @@
+-- Copyright (c) 2016  Phil Leblanc  -- see LICENSE file
+
+--[[ 
+
+heiter - iterators based on coroutines
+
+count        - generates increasing integers
+take         - take only the first n elements of an iterable
+filter       - filter elements based on a predicate
+matching     - filter elements matching a pattern
+notmatching  - filter elements not matching a pattern
+map          - apply a function to all elements of an iterable
+collect      - collect all elements in a table
+first        - return the first element of an iterable
+flines       - generate lines from a file
+
+except collect and first, all functions return an iterator object
+so that they can be chained. Examples:
+
+for i in iter.count(10, 3) -- generate integers starting at 10, step 3
+	:take(3) -- keep only the first 3 elements
+	do print(i)  -- will print in sequence 10, 13, 16
+end
+
+for i in iter.count(10, 3)
+	-- keep only odd numbers
+	:filter(function(x) return x % 2 == 1 end)
+	:take(3) -- keep only the first 3 elements
+	do print(i)  -- will print in sequence 13, 19, 25
+end
+
+for i in iter.count(10, 3)
+	:filter(function(x) return x % 2 == 1 end)
+	:map(function(x) return 2 * x end)
+	:take(3) 
+	do print(i)  -- will print in sequence 26, 38, 50
+end
+
+t = iter.count(10, 3)
+		:filter(function(x) return x % 2 == 1 end)
+		:map(function(x) return 2 * x end)
+		:take(3):collect()
+now, t contains {26, 38, 50}
+
+t = iter.count(10, 3):first()  -- t == 10
+
+print all the lines of a file in upper case:
+for line in iter.flines("hello.txt"):map(string.upper) do
+	print(line)
+end
+
+]]
+
 
 local he = require "he"
 
-local class = he.class
-
-local pairs, ipairs, sort = pairs, ipairs, table.sort
 local yield = coroutine.yield
 local resume = coroutine.resume
 
 local function fnil() return nil end
 
 ------------------------------------------------------------------------
-iter = class()
+iter = he.class()
 
 function iter:__call(...)
 	return self.f(...)
@@ -93,11 +143,17 @@ function iter.filter(it, pred)
 	end)
 end--filter
 
-function iter.match(it, pat)
+function iter.matching(it, pat)
 	-- convenience filter
 	-- generates only the elements in 'it' matching pattern 'pat'
 	return iter.filter(it, function(x) return string.match(x, pat) end)
 end--match
+
+function iter.notmatching(it, pat)
+	-- convenience filter
+	-- generates only the elements in 'it' not matching pattern 'pat'
+	return iter.filter(it, function(x) return not string.match(x, pat) end)
+end--nomatch
 
 function iter.map(it, func)
 	-- create a map iterator. Apply 'func' to elements of 'it'
