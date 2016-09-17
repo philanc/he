@@ -34,7 +34,58 @@ pkdecrypt_block    | with the same session key
 ]]
 
 local he = require "he"
-local henacl = require "luatweetnacl"
+he.interactive()
+------------------------------------------------------------------------
+-- compatibility with former tweetnacl v0.2 in wslua
+--
+-- when (s)lua supports luatweetnacl, all this block will be replaced 
+-- with the line:
+--       local henacl = require "luatweetnacl"
+--
+local henacl
+
+if package.preload.tweetnacl then 
+	henacl = require "tweetnacl"
+	do
+		local null32 = ('\0'):rep(32)
+		local null16 = ('\0'):rep(16)
+		--
+		local secretbox = henacl.secretbox
+		henacl.secretbox = function(pt, nonce, k)
+			-- take care of the leading 32 null bytes constraint, and 
+			-- remove the leading 16 null bytes in the encrypted text
+			pt = null32 .. pt
+			local et = secretbox(pt, nonce, k)
+			et = et:sub(17)
+			return et
+		end
+		henacl.box_afternm = henacl.secretbox -- fix alias
+		--
+		local secretbox_open = henacl.secretbox_open
+		henacl.secretbox_open = function(et, nonce, k)
+			-- take care of the leading 
+			-- 32 and 16 null bytes constraint
+			et = null16 .. et -- append the leading 16 null bytes
+			local pt, msg = secretbox_open(et, nonce, k)
+			-- remove the leading 32 null bytes
+			return (pt and pt:sub(33) or nil), msg
+		end
+		henacl.box_open_afternm = henacl.secretbox_open -- fix alias
+		--
+		local stream_xor = henacl.stream_xor
+		henacl.stream_xor = function(pt, n, k)
+			-- fix the stupid mistake re "msg length <= ZEROBYTES"
+			-- stupid fix, but cannot do otherwise :-(
+			pt = null32 .. pt
+			local et =  stream_xor(pt, n, k)
+			return et:sub(33)
+		end
+	end --do
+else
+	henacl = require "luatweetnacl"
+end
+------------------------------------------------------------------------
+
 
 -- key and nonce sizes
 henacl.KEYSZ = 32

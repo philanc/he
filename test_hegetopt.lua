@@ -18,13 +18,14 @@ assert(eq(ot, {"f1", "f2", h=true}))
 --simple, with --
 al = { "-h",  "--", "f1",  "f2", }
 ot, msg = getopt("ABo:hz:v", al)
+assert(eq(ot, {"f1", "f2", h=true}))
 
 --simple, with -- and arg starting with '-'
 al = { "-h",  "--", "---f1",  "-f2", }
 ot, msg = getopt("ABo:hz:v", al)
 assert(eq(ot, {"---f1", "-f2", h=true}))
 
--- unknown option
+-- unknown option -a
 al = { "-h", "-v", "-a", "out",  "f1",  "f2" }
 ot, msg = getopt("o:hz:v", al)
 assert(not ot)
@@ -48,6 +49,7 @@ assert(not ot)
 al = { "-h",  "f1",  "f2", }
 ot, msg = getopt("h6z:v", al)
 assert(not ot)
+assert(msg:match"invalid option string: ")
 
 --~ print(ot, msg); ppt(ot)
 

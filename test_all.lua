@@ -12,5 +12,7 @@ test "hefs"
 test "hecsv"
 test "hezen"
 test "henacl"
+test "hegetopt"
 test "heserial"
+test "heiter"
 

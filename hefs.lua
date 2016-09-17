@@ -140,6 +140,8 @@ hefs.chdir = lfs.chdir
 hefs.rmdir = lfs.rmdir
 hefs.mkdir = lfs.mkdir
 hefs.touch = lfs.touch
+
+local att = lfs.attributes
 --
 
 function hefs.currentdir() return he.pnorm(lfs.currentdir()) end
