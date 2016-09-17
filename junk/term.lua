@@ -41,10 +41,10 @@ term={
 	right = function (n) out("\027[",n or 1,";","C") end,
 	left = function (n) out("\027[",n or 1,";","D") end,
 	color = function (f,b,m) 
-				if m then out("\027[",f,";",b,";",m,"m")
-				elseif b then out("\027[",f,";",b,"m")
-				else out("\027[",f,"m") end 
-			end,
+	    if m then out("\027[",f,";",b,";",m,"m")
+	    elseif b then out("\027[",f,";",b,"m")
+	    else out("\027[",f,"m") end 
+	end,
 	-- save/restore cursor position
 	save = function () out("\027[s") end,
 	restore = function () out("\027[u") end,
