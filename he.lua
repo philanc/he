@@ -671,17 +671,30 @@ end
 -- OS / shell functions
 
 function he.shell(cmd)
-	-- execute cmd; return stdout as a string
+	-- execute cmd; return stdout as a string and a status code.
+	-- the status code is the exit code, or if the program has been 
+	-- interrupted by a signal, 1000 + the signal number
+	-- [convention for most shells is 128+N, ksh93 is 256+N so maybe 
+	--  1000+N is a bit exotic...but easy to read]
 	local f = io.popen(cmd) 
 	local s = f:read("*a")
-	f:close()
-	return s
+	-- close on a popen returns the same values as os.execute()
+	-- success, exit type (exit or signal), exit code or signal number
+	local succ, exit, status = f:close()
+	-- return convention: 
+	-- if exit=='signal', return 1000 + signal number
+	-- (it allows to return only one status code and test easily.
+	-- - exit codes should be below 256)
+	-- return s even in case of failure. it allows to get stderr
+	-- with a redirection, eg.: s, 
+	return s, (exit=='signal' and status+1000 or status)
 end
 
 function he.shlines(cmd) 
-	-- executes cmd return stdout as a list of lines
+	-- executes cmd, return stdout as a list of lines
 	-- (remove empty lines at beginning and end of cmd output)
-	return he.lines(he.stripnl(he.shell(cmd))) 
+	local s, status = he.shell(cmd)
+	return s and he.lines(he.stripnl(he.shell(cmd))), status
 end
 
 function he.escape_sh(s)  
