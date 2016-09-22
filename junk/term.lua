@@ -103,7 +103,7 @@ term.keys = {
 	mod_alt        = 0x01,
 }
 
-term.scrsize = function()
+term.stty_size = function()
 	-- return screen dimensions (number of lines, number of columns
 	local s, e = he.shell("stty size")
 	if e == 0 then
@@ -291,11 +291,21 @@ end
 	
 		
 	
-	
 ------------------------------------------------------------------------
---[[
+--[[ notes
+
+- io.read(0) - return "" or nil at eof  (never nil on tty stdin, so 
+  cannot be used to replace kbhit() )
+
+
+  
+]]
+------------------------------------------------------------------------
 he.interactive()
 ln = require"linenoise"
+
+--[[
+
 --~ pp(ln)
 if not ln.isatty(1) then exit(1) end
 col = term.colors
@@ -363,7 +373,22 @@ ln.setmode(omode)
 
 
 -- ]]
+-- [[
+function t2()
+	omode = ln.getmode()
+	ln.setrawmode()
+	outf"press a key..."
+	l, c = term.getscrlc()
+	outf(he.repr(l)) ; 	outf' ' 
+	outf(he.repr(c)) ; 	outf' ' 
 
+	outf"done."
+	ln.setmode(omode)
+end
+
+t2()
+
+-- ]]
 
 ------------------------------------------------------------------------
 return term

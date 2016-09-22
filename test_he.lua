@@ -106,7 +106,7 @@ assert(list.find_elem(a, function(v) return v==5 end))
 assert(list.check_elems(a, function(v) return v<55 end))
 assert(not list.find_elem(a, function(x) return type(x)=='string' end))
 -- list iterator elems()
-b = {} ; for e in list.elems(a) do list.app(b, e) end ;  assert(he.equal(a,b))
+b = {} ; for e in list.items(a) do list.app(b, e) end ;  assert(he.equal(a,b))
 
 t = list()
 t:app{key=222, name='vic', age=33}
@@ -199,6 +199,46 @@ assert(he.equal(d, he.update(d, {})))
 assert(he.equal(d, he.update(d, d)))
 
 
+
+------------------------------------------------------------------------
+-- test iterators
+
+local iter = he.iter
+
+local odd = function(i) return i % 2 == 1 end
+
+local t, t1, t2, i, l, x
+local txt, fh, msg
+
+
+
+-- count, filter, take
+-- also verify that :dbg() and :check_err() do not change the result 
+t = {}
+for i in iter.count(10,3)
+	:filter(odd)
+	:take(3) 
+	:dbg('---dbg ok.')
+	:check_err()
+	do t[#t+1] = i end
+assert(he.equal(t, {13, 19, 25}))
+
+-- tolist
+t = list{11,22,33}
+assert(he.equal(t, iter.items(t):tolist()))
+t = iter.count(10,3):filter(odd):take(3):tolist(); 
+assert(he.equal(t, list{13, 19, 25}))
+
+--first
+assert(iter.count():first() == 1)
+
+-- map
+t = iter.count(10,3):filter(odd)
+	:map(function(x) return 2*x end)
+	:take(3):tolist(); 
+assert(he.equal(t, list{26, 38, 50}))
+
+-- flines:  uses a file => tested below
 
 ------------------------------------------------------------------------
 -- test misc functions
@@ -321,6 +361,44 @@ else -- assume linux
 	assert(he.endswith(x[1], 'he_test_file.txt'))
 end -- if 
 
+
+-- iter.fread()
+txt = [[abc def
+== oops, a comment
+gh ijkl
+mnop qr st<eof>]]
+he.fput(fn, txt)
+t = {}
+fh, msg = io.open(fn)
+--~ for l in iter.fread(fh) do print(he.repr(l)) end
+assert(iter.fread(fh):first() == [[abc def]])
+-- check fh has not been closed
+assert(io.type(fh) == 'file')
+assert(fh:close())
+
+--iter.records
+fl = he.lines(he.fget(fn))
+fh, msg = io.open(fn)
+--~ for l in iter.fread(fh, 11):lines() do print('>>', #l, he.repr(l)) end
+--~ fh:seek('set')--rewind file
+assert(he.equal(iter.fread(fh, 16):lines():tolist(), fl))
+fh:seek('set')--rewind file
+assert(he.equal(iter.fread(fh, 5):lines():tolist(), fl))
+assert(fh:close())
+
+fh, msg = io.open(fn)
+for l in iter.fread(fh, 11):records('\n==%s+') do print('>>', #l, he.repr(l)) end
+fh:seek('set')--rewind file
+assert(fh:close())
+
+
+-- matching
+fh, msg = io.open(fn)
+l = iter.fread(fh):map(string.upper):matching("IJ"):first()
+assert(l == [[GH IJKL]])
+fh:close()
+
+-- @@@ cannot remove the file since it is probably still open. How to close it ???
 -- cleanup the tmp file
 assert(os.remove(fn))
 
