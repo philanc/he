@@ -21,10 +21,10 @@ local he = require 'he'
 local strf = string.format
 local byte, char = string.byte, string.char
 local spack, sunpack = string.pack, string.unpack
-
 local app, concat = table.insert, table.concat
-
 local yield = coroutine.yield
+
+local repr = function(x) return strf("%q", tostring(x)) end
 
 ------------------------------------------------------------------------
 -- following definitions (from output to restore) are
@@ -33,8 +33,21 @@ local yield = coroutine.yield
 
 local out = io.write
 
+local outf = function(...) 
+	-- write arguments to stdout, then flush.
+	io.write(...); io.flush()
+end
+
+outdbg = function(x, sep) 
+	out(repr(x):sub(2, -2))
+	if sep then out(sep) end
+	io.flush() 
+end
+
 term={
-	output = out,
+	out = out,
+	outf = outf,
+	outdbg = outdbg,
 	clear = function () out("\027[2J") end,
 	cleareol = function () out("\027[K") end,
 	golc = function (l,c) out("\027[",l,";",c,"H") end,
@@ -67,7 +80,22 @@ term.colors = {
 	reset = 0, normal= 0, bright= 1, bold = 1, reverse = 7,
 }
 
-term.keys = {
+term.stty_size = function()
+	-- return screen dimensions (number of lines, number of columns
+	local s, e = he.shell("stty size")
+	if e == 0 then
+		local l, c = s:match("(%d+)%s+(%d+)")
+		return l, c
+	else
+		return nil, "term: stty size error"
+	end
+end
+
+------------------------------------------------------------------------
+-- key input
+
+
+term.keys = { -- key code definitions
 	unknown        = 0x10000,
 	esc            = 0x1b,
 	del            = 0x7f,
@@ -103,29 +131,11 @@ term.keys = {
 	mod_alt        = 0x01,
 }
 
-term.stty_size = function()
-	-- return screen dimensions (number of lines, number of columns
-	local s, e = he.shell("stty size")
-	if e == 0 then
-		local l, c = s:match("(%d+)%s+(%d+)")
-		return l, c
-	else
-		return nil, "term: stty size error"
-	end
-end
-
-term.outdbg = function(x) 
-	out(he.repr(x):sub(2, -2))
-	io.flush() 
-end
-
-local function sleep(n) local j=0 ; for i=1,n*1000000 do j=j+1 end end
-local outf = function(x) out(x) ; io.flush() end
-local morekeys = function() sleep(1); return ln.kbhit() end
-local getcode = function() return byte(io.read(1)) end
+--~ local function sleep(n) local j=0 ; for i=1,n*1000000 do j=j+1 end end
+--~ local morekeys = function() sleep(1); return ln.kbhit() end
 local keys = term.keys
 
---special chars
+--special chars (for parsing esc sequences)
 local ESC, LETO, LBR, TIL= 27, 79, 91, 126  --  esc, [, ~
 
 local isdigitsc = function(c) 
@@ -175,6 +185,8 @@ local seq = {
 	['[[E'] = keys.kf5,  --linux
 
 }
+
+local getcode = function() return byte(io.read(1)) end
 
 term.input = function()
 	-- return a "read next key" function that can be used in a loop
@@ -254,6 +266,8 @@ term.rawinput = function()
 end--rawinput()
 
 term.getcurpos = function()
+	-- return current cursor position (line, coloumn as integers)
+	--
 	outf("\027[6n") -- report cursor position. answer: esc[n;mR
 	local c, i = 0, 0
 	local s = ""
@@ -273,6 +287,7 @@ term.getcurpos = function()
 end
 
 term.getscrlc = function()
+	-- return current screen dimensions (line, coloumn as integers)
 	term.save()
 	term.down(999); term.right(999)
 	local l, c = term.getcurpos()
@@ -303,6 +318,8 @@ end
 ------------------------------------------------------------------------
 he.interactive()
 ln = require"linenoise"
+
+local outdbg = term.outdbg
 
 --[[
 
@@ -359,7 +376,7 @@ while true do
 	local k = nextk()
 	if k == nil then outx(0x100000) ; break end
 	if k == byte'.' then break end
---~ 	outf(he.repr(c))
+--~ 	outf(repr(c))
 	local name = term.getkeyname(k)
 	if name then
 		outf(name .. " ") 
@@ -379,8 +396,10 @@ function t2()
 	ln.setrawmode()
 	outf"press a key..."
 	l, c = term.getscrlc()
-	outf(he.repr(l)) ; 	outf' ' 
-	outf(he.repr(c)) ; 	outf' ' 
+--~ 	outf(repr(l), ' ')
+--~ 	outf(repr(c), ' ')
+	outdbg(l, ' ')
+	outdbg(c, ' ')
 
 	outf"done."
 	ln.setmode(omode)
