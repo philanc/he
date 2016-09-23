@@ -119,7 +119,7 @@ term.keys = { -- key code definitions
 	mousewheelup   = 0xffe5,
 	mousewheeldown = 0xffe4,  -- 0xffff-27
 	-- modifiers
-	mod_alt        = 0x01,
+--~ 	mod_alt        = 0x01,
 }
 
 --~ local function sleep(n) local j=0 ; for i=1,n*1000000 do j=j+1 end end
