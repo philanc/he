@@ -2,21 +2,21 @@
 ------------------------------------------------------------------------
 --[[	term.lua
 
-terminal utility module 
+terminal utility module - unix only
 
-(require the slua linenoise binding)
+This module assumes the tty is in raw mode
+=> require the slua linenoise binding or spawn stty to do it
 
 
-good ref:   ("CSI" is "<esc>[")
+good ref on ANSI esc sequences:   
 https://en.wikipedia.org/wiki/ANSI_escape_code
+(in the text, "CSI" is "<esc>[")
 
 ]]
 
 
 ------------------------------------------------------------------------
 -- some local definitions
-
-local he = require 'he'
 
 local strf = string.format
 local byte, char = string.byte, string.char
@@ -80,20 +80,8 @@ term.colors = {
 	reset = 0, normal= 0, bright= 1, bold = 1, reverse = 7,
 }
 
-term.stty_size = function()
-	-- return screen dimensions (number of lines, number of columns
-	local s, e = he.shell("stty size")
-	if e == 0 then
-		local l, c = s:match("(%d+)%s+(%d+)")
-		return l, c
-	else
-		return nil, "term: stty size error"
-	end
-end
-
 ------------------------------------------------------------------------
 -- key input
-
 
 term.keys = { -- key code definitions
 	unknown        = 0x10000,
@@ -313,9 +301,29 @@ end
   cannot be used to replace kbhit() )
 
 
+-- stty_size() depends on he.shell
+-- not useful if getscrlc works
+-- => push it to another module using spawn stty for raw/cooked mode 
+--    and get scr dim if linenoise extensions are not available
+--
+-- Alt: def setmode functions here with linenoise if avail or stty if not.
+--
+term.stty_size = function()
+	-- return screen dimensions (number of lines, number of columns
+	local s, e = he.shell("stty size")
+	if e == 0 then
+		local l, c = s:match("(%d+)%s+(%d+)")
+		return l, c
+	else
+		return nil, "term: stty size error"
+	end
+end
+
+
   
 ]]
 ------------------------------------------------------------------------
+local he = require"he"
 he.interactive()
 ln = require"linenoise"
 
