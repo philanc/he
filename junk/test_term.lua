@@ -37,7 +37,6 @@ end
 local style = {
 	[1] = function() color(col.normal) end, 
 	[2] = function() color(col.red, col.bold) end, 
---~ 	[3] = function() color(col.green, col.bold) end, 
 	[3] = function() color(col.green) end, 
 	[5] = function() color(col.red, col.bgblack) end, 
 }
@@ -52,14 +51,10 @@ end
 
 local coord = function(l, c) return sf("l=%d c=%d", l, c) end
 local paintcorners = function()
-	local nw = coord(1, 1)
-	local ne = coord(1, sc)
-	local se = coord(sl, sc)
-	local sw = coord(sl, 1)
-	puteol(1, 1, 2, nw)
-	puteol(1, sc-#ne+1, 2, ne)
-	puteol(sl, 1, 2, sw)
-	puteol(sl, sc-#se+1, 2, se)
+	local nw = coord(1, 1); 	puteol(1, 1, 2, nw)
+	local ne = coord(1, sc);	puteol(1, sc-#ne+1, 2, ne)
+	local sw = coord(sl, 1);	puteol(sl, 1, 2, sw)
+	local se = coord(sl, sc); 	puteol(sl, sc-#se+1, 2, se)
 end
 
 function t3()
