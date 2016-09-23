@@ -1,4 +1,4 @@
-
+-- test_term.lua
 
 ------------------------------------------------------------------------
 -- some local definitions
@@ -7,7 +7,6 @@ local strf = string.format
 local byte, char = string.byte, string.char
 local spack, sunpack = string.pack, string.unpack
 local app, concat = table.insert, table.concat
-local yield = coroutine.yield
 
 local repr = function(x) return strf("%q", tostring(x)) end
 
@@ -23,95 +22,80 @@ local he = require"he"
 he.interactive()
 ln = require"linenoise"
 
+local sl, sc -- screen lines, columns
+local out, go, color = term.out, term.golc, term.color
+local cleareol = term.cleareol
+local col = term.colors
 
---[[
+local sf = string.format
+local flush = io.flush
 
---~ pp(ln)
-if not ln.isatty(1) then exit(1) end
-col = term.colors
+local put = function(l, c, s)
+	go(l, c); out(s)
+end
 
-term.color(col.white, col.bgblack)
-term.color(col.normal)
+local style = {
+	[1] = function() color(col.normal) end, 
+	[2] = function() color(col.red, col.bold) end, 
+--~ 	[3] = function() color(col.green, col.bold) end, 
+	[3] = function() color(col.green) end, 
+	[5] = function() color(col.red, col.bgblack) end, 
+}
 
---~ term.clear()
---~ term.golc(1,1)
---~ term.output(term.scrsize())
---~ term.golc(3, 20)
---~ term.color(col.white, col.bgred, col.reverse)
---~ term.color(col.reverse)
---~ term.color(col.red, col.bold)
---~ term.color(col.red)
---~ term.output(he.isodate(), "\t\t!!!")
---~ term.output("\r")
---~ term.output("XXZZ\n")
---~ term.color(col.white, col.bgblack, col.normal)
---~ term.color(col.normal)
---~ term.color(col.normal)
---~ term.reset()
---~ term.color(col.yellow, col.reverse)
---~ term.output(he.isodate())
+local put = function(l, c, y, s) -- y is style number
+	go(l, c); style[y](); outf(s)
+end
 
-local outr = term.outdbg
-local outx = function(x) out(strf("%02X ", x)) ; io.flush() end
-local outx = function(x) out(strf("%d ", x)) ; io.flush() end
-local nextk = term.input()
+local puteol = function(l, c, y, s) -- y is style number
+	go(l, c); cleareol(); style[y](); outf(s)
+end
 
---~ outx = function(x) outr(char(x)) end
---~ local nextk = term.rawinput()
+local coord = function(l, c) return sf("l=%d c=%d", l, c) end
+local paintcorners = function()
+	local nw = coord(1, 1)
+	local ne = coord(1, sc)
+	local se = coord(sl, sc)
+	local sw = coord(sl, 1)
+	puteol(1, 1, 2, nw)
+	puteol(1, sc-#ne+1, 2, ne)
+	puteol(sl, 1, 2, sw)
+	puteol(sl, sc-#se+1, 2, se)
+end
 
-local nextc = function() return string.char(nextk()) end
-omode = ln.getmode()
-
--- request cursor position
-print"cursor position (esc 6n) - press '.' to exit"
-ln.setrawmode()
-
-l, c = term.getscrlc()
-term.color(col.red, col.bold)
-io.write(l, ' ', c, ': '); io.flush()
-term.color(col.normal)
-
---~ while not morekeys() do outf('='); sleep(1) end ; goto reset
-
---~ outf("\027[6n")
-while true do
---~ 	local c = io.read(1)
-	local k = nextk()
-	if k == nil then outx(0x100000) ; break end
-	if k == byte'.' then break end
---~ 	outf(repr(c))
-	local name = term.getkeyname(k)
-	if name then
-		outf(name .. " ") 
-	else 
-		outx(k)
+function t3()
+--~ 	omode = ln.getmode()
+--~ 	ln.setrawmode()
+--~ 	os.execute("stty raw -echo 2> /dev/null")
+	prevmode, e, m = term.savemode()
+	if not prevmode then print(prevmode, e, m); os.exit() end
+	term.setrawmode()
+	nextk = term.input()
+--~ 	he.fput('zzr', he.shell('stty -g'))
+	while true do
+		term.reset()
+		sl, sc = term.getscrlc(); paintcorners()
+		put(3, 10, 1, "Press any key")	
+		put(4, 10, 1, "^Q   exit")	
+		put(5, 10, 1, "^L   redisplay")	
+		while true do
+			k = nextk()
+			if k == byte'Q'-64 then break end
+			if k == byte'L'-64 then goto continue end
+			puteol(3, 30, 3, term.keyname(k)); 
+			term.hide(); --hide cursor
+			flush()
+		
+		end
+		break
+		::continue::
 	end
+	term.show() -- show cursor
+	go(sl, 1); style[1](); flush()
+--~ 	ln.setmode(omode)
+--~ 	os.execute("stty sane")
+	term.restoremode(prevmode)
+
 end
 
-::reset::
-ln.setmode(omode)
-
-
--- ]]
--- [[
-function t2()
-	omode = ln.getmode()
-	ln.setrawmode()
-	outf"press a key..."
-	l, c = term.getscrlc()
---~ 	outf(repr(l), ' ')
---~ 	outf(repr(c), ' ')
-	outdbg(l, ' ')
-	outdbg(c, ' ')
-
-	outf"done."
-	ln.setmode(omode)
-end
-
-t2()
-
--- ]]
-
-------------------------------------------------------------------------
-return term
+t3()
 

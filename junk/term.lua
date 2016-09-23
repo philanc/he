@@ -48,23 +48,26 @@ term={
 	out = out,
 	outf = outf,
 	outdbg = outdbg,
-	clear = function () out("\027[2J") end,
-	cleareol = function () out("\027[K") end,
-	golc = function (l,c) out("\027[",l,";",c,"H") end,
-	up = function (n) out("\027[",n or 1,";","A") end,
-	down = function (n) out("\027[",n or 1,";","B") end,
-	right = function (n) out("\027[",n or 1,";","C") end,
-	left = function (n) out("\027[",n or 1,";","D") end,
-	color = function (f,b,m) 
+	clear = function() out("\027[2J") end,
+	cleareol = function() out("\027[K") end,
+	golc = function(l,c) out("\027[",l,";",c,"H") end,
+	up = function(n) out("\027[",n or 1,";","A") end,
+	down = function(n) out("\027[",n or 1,";","B") end,
+	right = function(n) out("\027[",n or 1,";","C") end,
+	left = function(n) out("\027[",n or 1,";","D") end,
+	color = function(f,b,m) 
 	    if m then out("\027[",f,";",b,";",m,"m")
 	    elseif b then out("\027[",f,";",b,"m")
 	    else out("\027[",f,"m") end 
 	end,
+	-- hide / show cursor
+	hide = function() out("\027[?25l") end,
+	show = function() out("\027[?25h") end,
 	-- save/restore cursor position
-	save = function () out("\027[s") end,
-	restore = function () out("\027[u") end,
+	save = function() out("\027[s") end,
+	restore = function() out("\027[u") end,
 	-- reset terminal (clear and reset default colors)
-	reset = function () out("\027c") end,
+	reset = function() out("\027c") end,
 
 }
 
@@ -283,7 +286,7 @@ term.getscrlc = function()
 	return l, c
 end
 
-term.getkeyname = function(c)
+term.keyname = function(c)
 	for k, v in pairs(keys) do 
 		if c == v then return k end
 	end
@@ -291,7 +294,32 @@ term.getkeyname = function(c)
 	if c < 256 then return char(c) end
 	return tostring(c)
 end
+
+-- poor man's tty mode management, based on stty
+-- (better use slua linenoise extension if available)
+
+term.setrawmode = function()
+	return os.execute("stty raw -echo 2> /dev/null")
+end
+
+term.setsanemode = function()
+	return os.execute("stty sane")
+end
+
+term.savemode = function()
+	local fh = io.popen("stty -g")
+	local mode = fh:read('a')
+	print(mode)
+	local succ, e, msg = fh:close()
+	return succ and mode or nil, e, msg
+end
+
+term.restoremode = function(mode)
+	return os.execute("stty " .. mode)
+end
 	
+	
+		
 		
 	
 ------------------------------------------------------------------------
