@@ -152,6 +152,23 @@ function displines(txtl, li, maxl)
 	end
 end
 
+local function pad(s, col)
+	if #s >= col then
+		s = s:sub(1,col)
+	else
+		s = s .. rep(' ', col - #s)
+	end
+	return s
+end
+
+function disptitle(title, col)
+	puteol(1, 1, 3, pad(title, col))
+end	
+
+function dispmsg(msg, col)
+	puteol(scrl, 1, 3, pad(msg, col))
+end	
+
 function display(txt)
 --~ 	omode = ln.getmode()
 --~ 	ln.setrawmode()
@@ -164,6 +181,10 @@ function display(txt)
 		term.reset()
 		term.hide()
 		scrl, scrc = term.getscrlc()
+		disptitle("viewfile:", scrc)
+		local help = "Quit: ^Q, Redisplay: ^L,  "
+		.. "Navigation: PgUp, PgDown, Home, End"
+		dispmsg(help, scrc)
 		local txtl = reflow(txt, scrc)
 		local li = 1
 		displines(txtl, li, scrl-2)
@@ -184,14 +205,14 @@ function display(txt)
 				li = max(#txtl - (scrl-3), 1)
 				displines(txtl, li, scrl-2)
 			else
-				puteol(scrl, 1, 2, term.keyname(k))
+--~ 				puteol(scrl, 1, 2, term.keyname(k))
 			end
 		end
 		break
 		::continue::
 	end
 	term.show() -- show cursor
-	go(scrl, 1); style[1](); flush()
+	go(scrl, 1); style[1](); cleareol(); flush()
 --~ 	ln.setmode(omode)
 --~ 	os.execute("stty sane")
 	term.restoremode(prevmode)
@@ -199,13 +220,17 @@ end --display
 
 function t3()
 
-	txt = rep('\1',80) .. rep('\2',80)
-	txt = rep('\1\2\3\9',80)
-	txt = rep('\1\9\1\2\9\1\2\3\9',80)
+--~ 	txt = rep('\1',80) .. rep('\2',80)
+--~ 	txt = rep('\1\2\3\9',80)
+--~ 	txt = rep('\1\9\1\2\9\1\2\3\9',80)
 --~ 	pp(reflow(txt, 80))
-	brep = brep2
-	txt = he.fget("luac")
 
+	brep = brep2 -- (use middledot for non latin1-printable chars)
+	filename = arg[1]
+	txt, msg = he.fget(filename)
+	if not txt then
+		print(msg); os.exit(1)
+	end
 	display(txt)
 end
 

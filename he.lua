@@ -841,8 +841,9 @@ end
 
 function he.fget(fname)
 	-- return content of file 'fname'
-	local f = assert(io.open(fname, 'rb'))
-	local s = f:read("*a") ;  f:close()
+	local f, msg = io.open(fname, 'rb')
+	if not f then return nil, msg end
+	local s = f:read("a") ;  f:close()
 	return s
 end
 
