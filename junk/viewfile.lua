@@ -1,41 +1,27 @@
 -- viewfile.lua
 
 ------------------------------------------------------------------------
+
+local he = require"he"
+he.interactive()
+local ln = require"linenoise"
+local term = require "term"
+
 -- some local definitions
 
 local strf = string.format
 local byte, char, rep = string.byte, string.char, string.rep
-local spack, sunpack = string.pack, string.unpack
 local app, concat = table.insert, table.concat
 
 local repr = function(x) return strf("%q", tostring(x)) end
 local max = function(x, y) if x < y then return y else return x end end 
 local min = function(x, y) if x < y then return x else return y end end 
 
-------------------------------------------------------------------------
-local term = require "term"
-
-local out = term.out
-local outf = term.outf
-local outdbg = term.outdbg
-local keys = term.keys
+local out, outf, outdbg = term.out, term.outf, term.outdbg
+local go, cleareol, color = term.golc, term.cleareol, term.color
+local col, keys = term.colors, term.keys
 
 ------------------------------------------------------------------------
-local he = require"he"
-he.interactive()
-ln = require"linenoise"
-
-local sl, sc -- screen lines, columns
-local out, go, color = term.out, term.golc, term.color
-local cleareol = term.cleareol
-local col = term.colors
-
-local sf = string.format
-local flush = io.flush
-
-local put = function(l, c, s)
-	go(l, c); out(s)
-end
 
 local style = {
 	[1] = function() color(col.normal) end, 
@@ -52,9 +38,8 @@ local puteol = function(l, c, y, s) -- y is style number
 	go(l, c); cleareol(); style[y](); outf(s)
 end
 
-local coord = function(l, c) return sf("l=%d c=%d", l, c) end
-
-tabln = 8
+local scrl, scrc -- screen lines, columns
+local tabln = 8
 
 local function brep3(b, li)
 	-- return the screen representation of ascii b at line index li and
@@ -66,7 +51,7 @@ local function brep3(b, li)
 	else s = char(b)
 	end
 	return s, li + #s
-end --brep
+end --brep3
 
 local function brep2(b, li)
 	-- return the screen representation of ascii b at line index li and
@@ -79,32 +64,7 @@ local function brep2(b, li)
 	else s = char(b)
 	end
 	return s, li + #s
-end --brep
-
-local function brep1(b, li)
-	-- return the screen representation of ascii b at line index li and
-	-- the new line index
-	local s
-	local ndc = char(183) -- latin1 centered dot
-	if b == 9 then s = rep(' ', tabln - li%tabln)
-	elseif b == 127 then s = ndc
-	elseif b < 32 then s = ndc
-	else s = char(b)
-	end
-	return s, li + #s
-end --brep
-
-local function brep0(b, li)
-	-- return the screen representation of ascii b at line index li and
-	-- the new line index
-	local s
-	if b == 9 then s = rep(' ', tabln - li%tabln)
-	elseif b == 127 then s = '^?'
-	elseif b < 32 then s = '^' .. char(b+64)
-	else s = char(b)
-	end
-	return s, li + #s
-end --brep
+end --brep2
 
 local brep = brep2
 
@@ -153,26 +113,16 @@ function displines(txtl, li, maxl)
 end
 
 local function pad(s, col)
-	if #s >= col then
-		s = s:sub(1,col)
-	else
-		s = s .. rep(' ', col - #s)
-	end
-	return s
+	if #s >= col then return s:sub(1,col) end
+	return s .. rep(' ', col-#s)
 end
 
-function disptitle(title, col)
-	puteol(1, 1, 3, pad(title, col))
-end	
-
-function dispmsg(msg, col)
-	puteol(scrl, 1, 3, pad(msg, col))
-end	
+function disptitle(title, l, w) puteol(l, 1, 3, pad(title, w)) end	
+function dispmsg(msg, l, w) puteol(l, 1, 3, pad(msg, w)) end	
 
 function display(txt)
 --~ 	omode = ln.getmode()
 --~ 	ln.setrawmode()
---~ 	os.execute("stty raw -echo 2> /dev/null")
 	local prevmode, e, m = term.savemode()
 	if not prevmode then print(prevmode, e, m); os.exit() end
 	term.setrawmode()
@@ -181,10 +131,11 @@ function display(txt)
 		term.reset()
 		term.hide()
 		scrl, scrc = term.getscrlc()
-		disptitle("viewfile:", scrc)
+		local title = strf("viewfile: %d %d", scrl, scrc)
+		disptitle(title, 1, scrc)
 		local help = "Quit: ^Q, Redisplay: ^L,  "
 		.. "Navigation: PgUp, PgDown, Home, End"
-		dispmsg(help, scrc)
+		dispmsg(help, scrl, scrc)
 		local txtl = reflow(txt, scrc)
 		local li = 1
 		displines(txtl, li, scrl-2)
@@ -212,9 +163,8 @@ function display(txt)
 		::continue::
 	end
 	term.show() -- show cursor
-	go(scrl, 1); style[1](); cleareol(); flush()
+	puteol(scrl, 1, 1, "")
 --~ 	ln.setmode(omode)
---~ 	os.execute("stty sane")
 	term.restoremode(prevmode)
 end --display
 
