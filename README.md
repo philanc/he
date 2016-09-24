@@ -8,7 +8,9 @@ A small bunch of Lua utility functions
 * parsing and encoding (CSV, ...)
 * unfinished junk
 
-This stuff is definitely NOT stable, and  NOT maintained.  In addition, hezen.lua and henacl.lua require respectively luazen and luatweetnacl which are not available here for the moment.
+This stuff is definitely NOT stable, and  NOT maintained.  
+
+hezen.lua and henacl.lua require respectively [luazen](https://github.com/philanc/luazen) and [luatweetnacl](https://github.com/philanc/luatweetnacl) which are available here.
 
 License: MIT -- see the file LICENSE
 
