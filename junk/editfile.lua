@@ -106,7 +106,8 @@ end
 ------------------------------------------------------------------------
 -- editor is the global editor object
 local editor = {
-	quit = false,
+	quit = false, -- set to true to quit editor_loop()
+	nextk = term.input(), -- the "read next key" function
 }
 
 
@@ -159,6 +160,8 @@ end -- adjcursor
 local function redisplay(full)
 	if full then
 		editor.scrl, editor.scrc = term.getscrlc()
+		-- [editor.scrbox is a bckgnd box with a pattern to
+		-- visually check that edition does not overflow buf box]
 		editor.scrbox = boxnew(1, 1, editor.scrl, editor.scrc)
 		boxfill(editor.scrbox, NDC, style.bckg)
 		buf.box = boxnew(3, 4, editor.scrl-4, editor.scrc-6)
@@ -310,15 +313,14 @@ local edit_actions = { -- actions binding for text edition
 }--edit_actions
 
 function editor_loop()
-	editor.nextk = term.input()
-	tl = he.fgetlines'zztest'
+	tl = he.fgetlines'zztest' -- [testfile. no file open for the moment]
 	style.normal()
 	buf = bufnew(tl)
 	buf.actions = edit_actions
 	redisplay(true)
 	while not editor.quit do
 		local k = editor.nextk()
---~ 		if k == byte'Q'-64 then break end
+--~ 		if k == 17 then break end -- ^Q quits
 		msg(buf, term.keyname(k))
 		local act = buf.actions[k]
 		if act then 
