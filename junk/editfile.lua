@@ -187,12 +187,37 @@ local function pad(s, w)
 	return s .. rep(' ', w-#s)
 end
 
-local function msg(buf, m)
+local function msg(m)
 	-- display a message m on last screen line
 	m = pad(m, editor.scrc)
 	go(editor.scrl, 1); cleareol(); style.msg()
 	out(m); style.normal(); flush()
 end
+
+local function readstr(prompt)
+	-- display prompt, read a string on the last screen line
+	-- [read only ascii or latin1 printable chars - no tab]
+	-- [ no edition except bksp ]
+	-- if ^G then return nil
+	local s = ""
+	msg(prompt)
+	local function disp(s) 
+		go(editor.scrl, #prompt+1); cleareol(); outf(s)
+	end
+	while true do
+		k = editor.nextk()
+		if (k >= 32 and k <127) or (k >=160 and k < 256) then
+			s = s .. char(k) 
+			disp(s)
+		elseif k == 8 or k == keys.del then -- backspace
+			s = s:sub(1, -2)
+			disp(s)
+		elseif k == 13 then return s  -- return
+		elseif k == 7 then return nil -- ^G - abort
+		else -- ignore all other keys
+		end
+	end--while
+end --readstr
 
 ------------------------------------------------------------------------
 -- buffer utility functions
@@ -285,6 +310,12 @@ end
 local function openfile()
 end
 
+local function atest()
+	s = readstr("enter a string: ")
+	if not s then msg"NIL!" ; return end
+	msg("the string is: '"..s.."'")
+end--atest
+
 ------------------------------------------------------------------------
 -- bindings
 
@@ -300,6 +331,7 @@ local edit_actions = { -- actions binding for text edition
 	[14] = adown,  -- ^N
 	[16] = aup,    -- ^P
 	[17] = function() editor.quit = true end, -- ^Q
+	[20] = atest,  -- ^T
 	--
 	[keys.kpgup] = apgup,
 	[keys.kpgdn] = apgdn,
@@ -323,7 +355,7 @@ function editor_loop()
 	while not editor.quit do
 		local k = editor.nextk()
 --~ 		if k == 17 then break end -- ^Q quits
-		msg(buf, term.keyname(k))
+		msg(term.keyname(k))
 		local act = buf.actions[k]
 		if act then 
 			act()
@@ -332,7 +364,7 @@ function editor_loop()
 			or (k == 9) then
 			ainsch(k)
 		else
-			msg(buf, term.keyname(k) .. " not bound")
+			msg(term.keyname(k) .. " not bound")
 		end
 	bufredisplay(buf)
 	end--while true
