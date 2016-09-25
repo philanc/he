@@ -13,15 +13,27 @@ local strf = string.format
 local byte, char, rep = string.byte, string.char, string.rep
 local app, concat = table.insert, table.concat
 
-local repr = function(x) return strf("%q", tostring(x)) end
-local max = function(x, y) if x < y then return y else return x end end 
-local min = function(x, y) if x < y then return x else return y end end 
+local function repr(x) return strf("%q", tostring(x)) end
+local function max(x, y) if x < y then return y else return x end end 
+local function min(x, y) if x < y then return x else return y end end 
 
 local out, outf, outdbg = term.out, term.outf, term.outdbg
 local go, cleareol, color = term.golc, term.cleareol, term.color
 local col, keys = term.colors, term.keys
 
 local flush = io.flush
+
+local function readfile(fn)
+	fh, errm = io.open(fn)
+	if not fh then return nil, errm end
+	local ll = {}
+	for l in fh:lines() do table.insert(ll, l) end
+	fh:close()
+	return ll
+end
+	
+
+
 ------------------------------------------------------------------------
 --display functions
 
@@ -122,7 +134,6 @@ local function bufnew(ll)
 		ci=1, cj=0,   -- text cursor (line ci, offset cj)
 		li=1,      -- index in ll of the line at the top of the box
 		chgd=true, -- true if buffer has changed since last display
-		styf=style.normal,  --style function
 	}
 	return buf
 end
@@ -205,13 +216,12 @@ local function readstr(prompt)
 		go(editor.scrl, #prompt+1); cleareol(); outf(s)
 	end
 	while true do
+		disp(s)
 		k = editor.nextk()
 		if (k >= 32 and k <127) or (k >=160 and k < 256) then
 			s = s .. char(k) 
-			disp(s)
 		elseif k == 8 or k == keys.del then -- backspace
 			s = s:sub(1, -2)
-			disp(s)
 		elseif k == 13 then return s  -- return
 		elseif k == 7 then return nil -- ^G - abort
 		else -- ignore all other keys
@@ -231,6 +241,8 @@ local function atbot(buf) return (buf.ci == 1) and atbol(buf) end
 
 ------------------------------------------------------------------------
 -- editor actions
+
+local function anop() end -- do nothing (NOP)
 
 local function adown()
 	buf.ci = min(buf.ci + 1, #buf.ll)
@@ -307,7 +319,14 @@ local function ainsch(k)
 	buf.chgd = true
 end
 
-local function openfile()
+local function aopenfile()
+	local fn = readstr("open file: ")
+	if not fn then msg""; return end
+	ll, errmsg = readfile(fn)
+	if not ll then msg(errmsg); return end
+	buf = bufnew(ll) -- [tmp. forget about the former buf!!]
+	buf.actions = editor.edit_actions
+	fullredisplay()
 end
 
 local function atest()
@@ -319,16 +338,18 @@ end--atest
 ------------------------------------------------------------------------
 -- bindings
 
-local edit_actions = { -- actions binding for text edition
+editor.edit_actions = { -- actions binding for text edition
 	[1] = ahome,   -- ^A
 	[2] = aleft,   -- ^B
 	[4] = adel,    -- ^D
 	[5] = aend,    -- ^E
 	[6] = aright,  -- ^F
+	[7] = anop,    -- ^G (do nothing)
 	[8] = abksp,   -- ^H
 	[12] = function() fullredisplay() end, -- ^L
 	[13] = anl,    -- ^M (insert newline)
 	[14] = adown,  -- ^N
+	[15] = aopenfile,  -- ^O
 	[16] = aup,    -- ^P
 	[17] = function() editor.quit = true end, -- ^Q
 	[20] = atest,  -- ^T
@@ -350,7 +371,7 @@ function editor_loop()
 	tl = he.fgetlines'zztest' -- [testfile. no file open for the moment]
 	style.normal()
 	buf = bufnew(tl)
-	buf.actions = edit_actions
+	buf.actions = editor.edit_actions
 	fullredisplay()
 	while not editor.quit do
 		local k = editor.nextk()
