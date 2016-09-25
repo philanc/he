@@ -21,23 +21,17 @@ local out, outf, outdbg = term.out, term.outf, term.outdbg
 local go, cleareol, color = term.golc, term.cleareol, term.color
 local col, keys = term.colors, term.keys
 
+local flush = io.flush
 ------------------------------------------------------------------------
 
 local style = {
-	[1] = function() color(col.normal) end, 
-	[2] = function() color(col.red, col.bold) end, 
-	[3] = function() color(col.normal); color(col.green) end, 
-	[5] = function() color(col.red, col.bgblack) end, 
-	[7] = function() color(col.black, col.bgyellow) end, 
+	normal = function() color(col.normal) end, 
+	high = function() color(col.red, col.bold) end, 
+	msg = function() color(col.normal); color(col.green) end, 
+	reverse = function() color(col.reverse) end, 
+	bckg = function() color(col.black, col.bgyellow) end, 
 }
 
-local put = function(l, c, y, s) -- y is style number
-	go(l, c); style[y](); outf(s)
-end
-
-local puteol = function(l, c, y, s) -- y is style number
-	go(l, c); cleareol(); style[y](); outf(s)
-end
 
 local function boxnew(x, y, l, c)
 	local b = {x=x, y=y, l=l, c=c}
@@ -96,18 +90,18 @@ local function boxlines(b, ll, li)
 		local l = ll[li+i-1] or EOT
 		boxline(b, i, l)
 	end
-	io.flush()
+	flush()
 end
 
-local function boxfill(b, ch, styleno)
+local function boxfill(b, ch, stylefn)
 	local filler = rep(ch, b.c)
 	for i = 1, b.l do
-		style[styleno]()
+		stylefn()
 		go(b.x+i-1, b.y)
 		out(filler)
 	end
-	style[1]() -- back to notmal style
-	io.flush()
+	style.normal() -- back to notmal style
+	flush()
 end
 
 local function bufnew(ll)
@@ -117,7 +111,7 @@ local function bufnew(ll)
 		ci=1, cj=0,   -- text cursor (line ci, offset cj)
 		li=1,      -- index in ll of the line at the top of the box
 		chgd=true, -- true if buffer has changed since last display
-		styf=style[1],  --style function
+		styf=style.normal,  --style function
 	}
 	return buf
 end
@@ -156,7 +150,7 @@ local function bufredisplay(buf, full)
 	if full then
 		buf.scrl, buf.scrc = term.getscrlc()
 		buf.scrbox = boxnew(1, 1, buf.scrl, buf.scrc)
-		boxfill(buf.scrbox, NDC, 7)
+		boxfill(buf.scrbox, NDC, style.bckg)
 		buf.box = boxnew(3, 4, buf.scrl-4, buf.scrc-6)
 		buf.chgd = true
 	end
@@ -185,12 +179,11 @@ local function pad(s, w)
 	return s .. rep(' ', w-#s)
 end
 
-function disptitle(title, l, w) puteol(l, 1, 3, pad(title, w)) end	
-function dispmsg(msg, l, w) puteol(l, 1, 3, pad(msg, w)) end	
-
 local function msg(buf, m)
-	dispmsg(m, buf.scrl, buf.scrc)
-	style[1](); io.flush()
+	-- display a message m on last screen line
+	m = pad(m, buf.scrc)
+	go(buf.scrl, 1); cleareol(); style.msg()
+	out(m); style.normal(); flush()
 end
 
 ------------------------------------------------------------------------
@@ -316,7 +309,7 @@ local edit_actions = { -- actions binding for text edition
 function editor_loop()
 	editor.nextk = term.input()
 	tl = he.fgetlines'zztest'
-	style[1]()
+	style.normal()
 	buf = bufnew(tl)
 	buf.actions = edit_actions
 	bufredisplay(buf, true)
@@ -351,7 +344,7 @@ function main()
 	-- restore terminal in a a clean state
 	term.show() -- show cursor
 	term.left(999); term.down(999)
-	style[1]()
+	style.normal()
 	io.flush()
 	--~ 	ln.setmode(omode)
 	term.restoremode(prevmode)
