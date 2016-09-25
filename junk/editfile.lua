@@ -39,8 +39,6 @@ local puteol = function(l, c, y, s) -- y is style number
 	go(l, c); cleareol(); style[y](); outf(s)
 end
 
--- box :: {x, y, l, c}  -- topleft is (x,y), l lines, c columns
-
 local function boxnew(x, y, l, c)
 	local b = {x=x, y=y, l=l, c=c}
 	b.clrl = rep(" ", c) -- used to clear box content
@@ -205,8 +203,10 @@ local function aend(buf)
 	buf.cj = #buf.ll[buf.ci]
 end
 
+-- test if at end / beginning of  line  (eol, bol)
 local function ateol(buf) return buf.cj >= #buf.ll[buf.ci] end
 local function atbol(buf) return buf.cj <= 0 end
+-- test if at  end / beginning of  text (eot, bot)
 local function ateot(buf) return (buf.ci == #buf.ll) and ateol(buf) end
 local function atbot(buf) return (buf.ci == 1) and atbol(buf) end
 
@@ -281,6 +281,7 @@ local actions = {
 	[14] = adown,  -- ^N
 	[16] = aup,    -- ^P
 	[17] = function(buf) quit = true end, -- ^Q
+	--
 	[keys.kpgup] = apgup,
 	[keys.kpgdn] = apgdn,
 	[keys.khome] = ahome,
@@ -297,7 +298,6 @@ local actions = {
 function edit()
 	nextk = term.input()
 	tl = he.fgetlines'zztest'
---~ 	tl = { "ab\9def\9g\9hij", "lmno" }
 	style[1]()
 	tbuf = bufnew(tl)
 	bufredisplay(tbuf, true)
@@ -325,10 +325,9 @@ function main()
 	if not prevmode then print(prevmode, e, m); os.exit() end
 	term.setrawmode()
 	term.reset()
---~ 	term.hide()
 	-- run the application
 	local ok, msg = xpcall(edit, debug.traceback)
---~ 	local ok, msg = xpcall(ta.runapp, debug.debug, ta, app)
+--~ 	local ok, msg = xpcall(edit, debug.debug, [edit args...])
 
 	-- restore terminal in a a clean state
 	term.show() -- show cursor
