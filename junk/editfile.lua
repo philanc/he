@@ -23,6 +23,7 @@ local col, keys = term.colors, term.keys
 
 local flush = io.flush
 ------------------------------------------------------------------------
+--display functions
 
 local style = {
 	normal = function() color(col.normal) end, 
@@ -31,7 +32,6 @@ local style = {
 	reverse = function() color(col.reverse) end, 
 	bckg = function() color(col.black, col.bgyellow) end, 
 }
-
 
 local function boxnew(x, y, l, c)
 	local b = {x=x, y=y, l=l, c=c}
@@ -46,7 +46,6 @@ local function boxclear(b)
 	end
 end
 
-local quit = false
 local tabln = 4
 local EOL = char(187) -- >>, indicate more undisplayed chars in s
 local NDC = char(183) -- middledot, used for non-displayable latin1 chars
@@ -104,6 +103,17 @@ local function boxfill(b, ch, stylefn)
 	flush()
 end
 
+------------------------------------------------------------------------
+-- editor is the global editor object
+local editor = {
+	quit = false,
+}
+
+
+-- buf is the current buffer
+local buf = {}
+
+
 local function bufnew(ll)
 	-- ll is a list of lines
 	local buf = { 
@@ -146,12 +156,12 @@ local function adjcursor(buf)
 	go(buf.box.x + cx - 1, buf.box.y + cy - 1); io.flush()
 end -- adjcursor
 
-local function bufredisplay(buf, full)
+local function redisplay(full)
 	if full then
-		buf.scrl, buf.scrc = term.getscrlc()
-		buf.scrbox = boxnew(1, 1, buf.scrl, buf.scrc)
-		boxfill(buf.scrbox, NDC, style.bckg)
-		buf.box = boxnew(3, 4, buf.scrl-4, buf.scrc-6)
+		editor.scrl, editor.scrc = term.getscrlc()
+		editor.scrbox = boxnew(1, 1, editor.scrl, editor.scrc)
+		boxfill(editor.scrbox, NDC, style.bckg)
+		buf.box = boxnew(3, 4, editor.scrl-4, editor.scrc-6)
 		buf.chgd = true
 	end
 	adjcursor(buf)
@@ -162,13 +172,6 @@ local function bufredisplay(buf, full)
 	end
 	buf.chgd = false
 end --bufredisplay
-
-
-------------------------------------------------------------------------
--- editor is the global editor object
-local editor = {}
--- buf is the current buffer
-local buf
 
 ------------------------------------------------------------------------
 -- dialog functions
@@ -181,8 +184,8 @@ end
 
 local function msg(buf, m)
 	-- display a message m on last screen line
-	m = pad(m, buf.scrc)
-	go(buf.scrl, 1); cleareol(); style.msg()
+	m = pad(m, editor.scrc)
+	go(editor.scrl, 1); cleareol(); style.msg()
 	out(m); style.normal(); flush()
 end
 
@@ -287,11 +290,11 @@ local edit_actions = { -- actions binding for text edition
 	[5] = aend,    -- ^E
 	[6] = aright,  -- ^F
 	[8] = abksp,   -- ^H
-	[12] = function(buf) bufredisplay(buf, true) end, -- ^L
+	[12] = function() redisplay(true) end, -- ^L
 	[13] = anl,    -- ^M (insert newline)
 	[14] = adown,  -- ^N
 	[16] = aup,    -- ^P
-	[17] = function(buf) quit = true end, -- ^Q
+	[17] = function() editor.quit = true end, -- ^Q
 	--
 	[keys.kpgup] = apgup,
 	[keys.kpgdn] = apgdn,
@@ -312,8 +315,8 @@ function editor_loop()
 	style.normal()
 	buf = bufnew(tl)
 	buf.actions = edit_actions
-	bufredisplay(buf, true)
-	while not quit do
+	redisplay(true)
+	while not editor.quit do
 		local k = editor.nextk()
 --~ 		if k == byte'Q'-64 then break end
 		msg(buf, term.keyname(k))
@@ -327,7 +330,7 @@ function editor_loop()
 		else
 			msg(buf, term.keyname(k) .. " not bound")
 		end
-	bufredisplay(buf)
+	redisplay()
 	end--while true
 end
 
