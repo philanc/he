@@ -157,16 +157,7 @@ local function adjcursor(buf)
 	go(buf.box.x + cx - 1, buf.box.y + cy - 1); io.flush()
 end -- adjcursor
 
-local function redisplay(full)
-	if full then
-		editor.scrl, editor.scrc = term.getscrlc()
-		-- [editor.scrbox is a bckgnd box with a pattern to
-		-- visually check that edition does not overflow buf box]
-		editor.scrbox = boxnew(1, 1, editor.scrl, editor.scrc)
-		boxfill(editor.scrbox, NDC, style.bckg)
-		buf.box = boxnew(3, 4, editor.scrl-4, editor.scrc-6)
-		buf.chgd = true
-	end
+local function bufredisplay(buf)
 	adjcursor(buf)
 	if buf.chgd then
 		boxlines(buf.box, buf.ll, buf.li)
@@ -175,6 +166,17 @@ local function redisplay(full)
 	end
 	buf.chgd = false
 end --bufredisplay
+
+local function fullredisplay()
+	editor.scrl, editor.scrc = term.getscrlc()
+	-- [editor.scrbox is a bckgnd box with a pattern to
+	-- visually check that edition does not overflow buf box]
+	editor.scrbox = boxnew(1, 1, editor.scrl, editor.scrc)
+	boxfill(editor.scrbox, NDC, style.bckg)
+	buf.box = boxnew(3, 4, editor.scrl-4, editor.scrc-6)
+	buf.chgd = true
+	bufredisplay(buf)
+end --fullredisplay
 
 ------------------------------------------------------------------------
 -- dialog functions
@@ -293,7 +295,7 @@ local edit_actions = { -- actions binding for text edition
 	[5] = aend,    -- ^E
 	[6] = aright,  -- ^F
 	[8] = abksp,   -- ^H
-	[12] = function() redisplay(true) end, -- ^L
+	[12] = function() fullredisplay() end, -- ^L
 	[13] = anl,    -- ^M (insert newline)
 	[14] = adown,  -- ^N
 	[16] = aup,    -- ^P
@@ -317,7 +319,7 @@ function editor_loop()
 	style.normal()
 	buf = bufnew(tl)
 	buf.actions = edit_actions
-	redisplay(true)
+	fullredisplay()
 	while not editor.quit do
 		local k = editor.nextk()
 --~ 		if k == 17 then break end -- ^Q quits
@@ -332,7 +334,7 @@ function editor_loop()
 		else
 			msg(buf, term.keyname(k) .. " not bound")
 		end
-	redisplay()
+	bufredisplay(buf)
 	end--while true
 end
 
