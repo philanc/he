@@ -109,16 +109,6 @@ local function boxfill(b, ch, styleno)
 	style[1]() -- back to notmal style
 	io.flush()
 end
-		
-		
-local function pad(s, col)
-	if #s >= col then return s:sub(1,col) end
-	return s .. rep(' ', col-#s)
-end
-
-function disptitle(title, l, w) puteol(l, 1, 3, pad(title, w)) end	
-function dispmsg(msg, l, w) puteol(l, 1, 3, pad(msg, w)) end	
-
 
 local function bufnew(ll)
 	-- ll is a list of lines
@@ -179,29 +169,32 @@ local function bufredisplay(buf, full)
 	buf.chgd = false
 end --bufredisplay
 
+
+------------------------------------------------------------------------
+-- editor is the global editor object
+local editor = {}
+-- buf is the current buffer
+local buf
+
+------------------------------------------------------------------------
+-- dialog functions
+
+local function pad(s, w) 
+	-- pad a string to fit width w
+	if #s >= w then return s:sub(1,w) end
+	return s .. rep(' ', w-#s)
+end
+
+function disptitle(title, l, w) puteol(l, 1, 3, pad(title, w)) end	
+function dispmsg(msg, l, w) puteol(l, 1, 3, pad(msg, w)) end	
+
 local function msg(buf, m)
 	dispmsg(m, buf.scrl, buf.scrc)
 	style[1](); io.flush()
 end
+
 ------------------------------------------------------------------------
--- editor actions
-
-	
-local function adown(buf)
-	buf.ci = min(buf.ci + 1, #buf.ll)
-end
-
-local function aup(buf)
-	buf.ci = max(buf.ci - 1, 1)
-end
-
-local function ahome(buf)
-	buf.cj = 0
-end
-
-local function aend(buf)
-	buf.cj = #buf.ll[buf.ci]
-end
+-- buffer utility functions
 
 -- test if at end / beginning of  line  (eol, bol)
 local function ateol(buf) return buf.cj >= #buf.ll[buf.ci] end
@@ -210,13 +203,32 @@ local function atbol(buf) return buf.cj <= 0 end
 local function ateot(buf) return (buf.ci == #buf.ll) and ateol(buf) end
 local function atbot(buf) return (buf.ci == 1) and atbol(buf) end
 
-local function aright(buf)
+------------------------------------------------------------------------
+-- editor actions
+
+local function adown()
+	buf.ci = min(buf.ci + 1, #buf.ll)
+end
+
+local function aup()
+	buf.ci = max(buf.ci - 1, 1)
+end
+
+local function ahome()
+	buf.cj = 0
+end
+
+local function aend()
+	buf.cj = #buf.ll[buf.ci]
+end
+
+local function aright()
 	if ateot(buf) then return end
 	if ateol(buf) then ahome(buf); adown(buf)
 	else buf.cj = buf.cj + 1 end
 end
 	
-local function aleft(buf)
+local function aleft()
 	-- at eol, cj maybe larger than #l when going 
 	-- up or down from longer lines
 	buf.cj = min(buf.cj, #buf.ll[buf.ci])
@@ -225,15 +237,15 @@ local function aleft(buf)
 	else buf.cj = buf.cj - 1  end
 end
 
-local function apgdn(buf)
+local function apgdn()
 	buf.ci = min(buf.ci + (buf.box.l - 2), #buf.ll)
 end
 
-local function apgup(buf)
+local function apgup()
 	buf.ci = max(buf.ci - (buf.box.l - 2), 1)
 end
 
-local function anl(buf)
+local function anl()
 	local l = buf.ll[buf.ci]
 	table.insert(buf.ll, buf.ci, l:sub(1, buf.cj))
 	buf.ll[buf.ci + 1] = l:sub(buf.cj + 1)
@@ -242,7 +254,7 @@ local function anl(buf)
 	buf.chgd = true
 end
 
-local function adel(buf)
+local function adel()
 	local ci, cj = buf.ci, buf.cj
 	local l = buf.ll[ci]
 	if ateol(buf) then
@@ -256,12 +268,12 @@ local function adel(buf)
 	buf.chgd = true
 end
 
-local function abksp(buf)
+local function abksp()
 	if atbot(buf) then return end
 	aleft(buf) ; adel(buf)
 end
 
-local function ainsch(buf, k)
+local function ainsch(k)
 	local ci, cj = buf.ci, buf.cj
 	local l = buf.ll[ci]
 	buf.ll[ci] = l:sub(1, cj) .. char(k) .. l:sub(cj+1)
@@ -269,7 +281,13 @@ local function ainsch(buf, k)
 	buf.chgd = true
 end
 
-local actions = {
+local function openfile()
+end
+
+------------------------------------------------------------------------
+-- bindings
+
+local edit_actions = { -- actions binding for text edition
 	[1] = ahome,   -- ^A
 	[2] = aleft,   -- ^B
 	[4] = adel,    -- ^D
@@ -293,29 +311,30 @@ local actions = {
 	[keys.kup] = aup,
 	[keys.kdown] = adown,
 
-}--actions
+}--edit_actions
 
-function edit()
-	nextk = term.input()
+function editor_loop()
+	editor.nextk = term.input()
 	tl = he.fgetlines'zztest'
 	style[1]()
-	tbuf = bufnew(tl)
-	bufredisplay(tbuf, true)
+	buf = bufnew(tl)
+	buf.actions = edit_actions
+	bufredisplay(buf, true)
 	while not quit do
-		local k = nextk()
-		if k == byte'Q'-64 then break end
-		msg(tbuf, term.keyname(k))
-		local act = actions[k]
+		local k = editor.nextk()
+--~ 		if k == byte'Q'-64 then break end
+		msg(buf, term.keyname(k))
+		local act = buf.actions[k]
 		if act then 
-			act(tbuf)
+			act()
 		elseif (k >= 32 and k < 127) 
 			or (k >= 160 and k < 256) 
 			or (k == 9) then
-			ainsch(tbuf, k)
+			ainsch(k)
 		else
-			msg(tbuf, term.keyname(k) .. " not bound")
+			msg(buf, term.keyname(k) .. " not bound")
 		end
-	bufredisplay(tbuf)
+	bufredisplay(buf)
 	end--while true
 end
 
@@ -326,7 +345,7 @@ function main()
 	term.setrawmode()
 	term.reset()
 	-- run the application
-	local ok, msg = xpcall(edit, debug.traceback)
+	local ok, msg = xpcall(editor_loop, debug.traceback)
 --~ 	local ok, msg = xpcall(edit, debug.debug, [edit args...])
 
 	-- restore terminal in a a clean state
