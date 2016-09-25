@@ -205,48 +205,96 @@ local function aend(buf)
 	buf.cj = #buf.ll[buf.ci]
 end
 
+local function ateol(buf) return buf.cj >= #buf.ll[buf.ci] end
+local function atbol(buf) return buf.cj <= 0 end
+local function ateot(buf) return (buf.ci == #buf.ll) and ateol(buf) end
+local function atbot(buf) return (buf.ci == 1) and atbol(buf) end
+
 local function aright(buf)
-	buf.cj = buf.cj + 1
-	if buf.cj > #buf.ll[buf.ci] then
-		ahome(buf); adown(buf)
-	end
+	if ateot(buf) then return end
+	if ateol(buf) then ahome(buf); adown(buf)
+	else buf.cj = buf.cj + 1 end
 end
 	
 local function aleft(buf)
 	-- at eol, cj maybe larger than #l when going 
 	-- up or down from longer lines
 	buf.cj = min(buf.cj, #buf.ll[buf.ci])
-	buf.cj = buf.cj - 1
-	if buf.cj < 0 then
-		aup(buf); aend(buf)
-	end
+	if atbot(buf) then return end
+	if atbol(buf) then aup(buf); aend(buf)
+	else buf.cj = buf.cj - 1  end
 end
 
 local function apgdn(buf)
 	buf.ci = min(buf.ci + (buf.box.l - 2), #buf.ll)
 end
 
-
 local function apgup(buf)
 	buf.ci = max(buf.ci - (buf.box.l - 2), 1)
 end
 
+local function anl(buf)
+	local l = buf.ll[buf.ci]
+	table.insert(buf.ll, buf.ci, l:sub(1, buf.cj))
+	buf.ll[buf.ci + 1] = l:sub(buf.cj + 1)
+	buf.ci = buf.ci + 1
+	buf.cj = 0
+	buf.chgd = true
+end
+
+local function adel(buf)
+	local ci, cj = buf.ci, buf.cj
+	local l = buf.ll[ci]
+	if ateol(buf) then
+		local l1 = buf.ll[ci+1]
+		if not l1 then return end -- at eot
+		table.remove(buf.ll, ci+1)
+		buf.ll[ci] = l .. l1
+	else
+		buf.ll[ci] = l:sub(1,cj) .. l:sub(cj+2)
+	end
+	buf.chgd = true
+end
+
+local function abksp(buf)
+	if atbot(buf) then return end
+	aleft(buf) ; adel(buf)
+end
+
+local function ainsch(buf, k)
+	local ci, cj = buf.ci, buf.cj
+	local l = buf.ll[ci]
+	buf.ll[ci] = l:sub(1, cj) .. char(k) .. l:sub(cj+1)
+	buf.cj = cj + 1
+	buf.chgd = true
+end
+
 local actions = {
-	[17] = function(buf) quit = true end, -- ^Q
-	[16] = function(buf) msg(buf, "Hello!") end, -- ^P
+	[1] = ahome,   -- ^A
+	[2] = aleft,   -- ^B
+	[4] = adel,    -- ^D
+	[5] = aend,    -- ^E
+	[6] = aright,  -- ^F
+	[8] = abksp,   -- ^H
 	[12] = function(buf) bufredisplay(buf, true) end, -- ^L
+	[13] = anl,    -- ^M (insert newline)
+	[14] = adown,  -- ^N
+	[16] = aup,    -- ^P
+	[17] = function(buf) quit = true end, -- ^Q
+	[keys.kpgup] = apgup,
+	[keys.kpgdn] = apgdn,
 	[keys.khome] = ahome,
 	[keys.kend] = aend,
+	[keys.kdel] = adel, 
+	[keys.del] = abksp, 
 	[keys.kright] = aright,
 	[keys.kleft] = aleft,
 	[keys.kup] = aup,
 	[keys.kdown] = adown,
-	[keys.kpgup] = apgup,
-	[keys.kpgdn] = apgdn,
 
 }--actions
 
-function t5()
+function edit()
 	nextk = term.input()
 	tl = he.fgetlines'zztest'
 --~ 	tl = { "ab\9def\9g\9hij", "lmno" }
@@ -258,7 +306,15 @@ function t5()
 		if k == byte'Q'-64 then break end
 		msg(tbuf, term.keyname(k))
 		local act = actions[k]
-		if act then act(tbuf) end
+		if act then 
+			act(tbuf)
+		elseif (k >= 32 and k < 127) 
+			or (k >= 160 and k < 256) 
+			or (k == 9) then
+			ainsch(tbuf, k)
+		else
+			msg(tbuf, term.keyname(k) .. " not bound")
+		end
 	bufredisplay(tbuf)
 	end--while true
 end
@@ -271,7 +327,7 @@ function main()
 	term.reset()
 --~ 	term.hide()
 	-- run the application
-	local ok, msg = xpcall(t5, debug.traceback)
+	local ok, msg = xpcall(edit, debug.traceback)
 --~ 	local ok, msg = xpcall(ta.runapp, debug.debug, ta, app)
 
 	-- restore terminal in a a clean state
