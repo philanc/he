@@ -41,7 +41,9 @@ local style = {
 	normal = function() color(col.normal) end, 
 	high = function() color(col.red, col.bold) end, 
 	msg = function() color(col.normal); color(col.green) end, 
-	reverse = function() color(col.reverse) end, 
+--~ 	sel = function() color(col.reverse) end, 
+--~ 	sel = function() color(col.cyan, col.bold) end, 
+	sel = function() color(col.magenta, col.bold) end, 
 	bckg = function() color(col.black, col.bgyellow) end, 
 }
 
@@ -75,34 +77,34 @@ local function ccrepr(b, j)
 	return s
 end --ccrepr
 
-local function boxline(b, bl, s)
-	-- display s at the bl-th line of box b
+local function boxline(b, bl, l, insel, jon, joff)
+	-- display line l at the bl-th line of box b
 	-- if s is tool long for the box, return the
-	-- index of the first undisplayed char in s
+	-- index of the first undisplayed char in l
+	-- insel: true if line start is in the selection
+	-- jon: if defined and not insel, position of beg of sel
+	-- joff: if defined, position of end of selection
 	local bc = b.c
 	local cc = 0 --curent col in box
 	go(b.x+bl-1, b.y); out(b.clrl)
 	go(b.x+bl-1, b.y)
-	for i = 1, #s do
-		local chs = ccrepr(byte(s, i), cc)
+	if insel then style.sel() end
+	for j = 1, #l do
+		if (not insel) and j == jon+1 then style.sel(); insel=true end
+		if insel and j == joff+1 then style.normal() end
+		local chs = ccrepr(byte(l, j), cc)
 		cc = cc + #chs
 		if cc >= bc then 
 			go(b.x+bl-1, b.y+b.c-1)
 			outf(EOL)
-			return i -- index of first undisplayed char in s
+			style.normal()
+			return j -- index of first undisplayed char in s
 		end
 		out(chs)
 	end
+	style.normal()
 end --boxline
 
-local function boxlines(b, ll, li)
-	-- display lines starting at index li in list of lines ll
-	for i = 1, b.l do
-		local l = ll[li+i-1] or EOT
-		boxline(b, i, l)
-	end
-	flush()
-end
 
 local function boxfill(b, ch, stylefn)
 	local filler = rep(ch, b.c)
@@ -168,10 +170,41 @@ local function adjcursor(buf)
 	go(buf.box.x + cx - 1, buf.box.y + cy - 1); io.flush()
 end -- adjcursor
 
+
+local function displaylines(buf)
+	-- display lines starting at index buf.li in list of lines buf.ll
+	local b, ll, li = buf.box, buf.ll, buf.li
+	local ci, cj, si, sj = buf.ci, buf.cj, buf.si, buf.sj
+	local bi, bj, ei, ej
+	local sel, insel, jon, joff = false, false, -1, -1
+	if si then
+		sel = true
+		if si < ci then bi=si; bj=sj; ei=ci; ej=cj
+		elseif si > ci then bi=ci; bj=cj; ei=si; ej=sj
+		elseif sj < cj then bi=si; bj=sj; ei=ci; ej=cj
+		elseif sj >= cj then bi=ci; bj=cj; ei=si; ej=sj
+		end
+	end
+	for i = 1, b.l do
+		local lx = li+i-1
+		if sel then
+			insel, jon, joff = false, -1, -1
+			if lx > bi and lx < ei then insel=true
+			elseif lx == bi and lx == ei then jon=bj; joff=ej
+			elseif lx == bi then jon=bj
+			elseif lx == ei then joff=ej; insel=true
+			end
+		end
+		local l = ll[lx] or EOT
+		boxline(b, i, l, insel, jon, joff)
+	end
+	flush()
+end
+
 local function bufredisplay(buf)
 	adjcursor(buf)
-	if buf.chgd then
-		boxlines(buf.box, buf.ll, buf.li)
+	if buf.chgd or buf.si then
+		displaylines(buf)
 		buf.chgd = false
 		adjcursor(buf)
 	end
@@ -372,6 +405,9 @@ function editor_loop()
 	style.normal()
 	buf = bufnew(tl)
 	buf.actions = editor.edit_actions
+	--
+	buf.si, buf.sj = 6, 3
+	--
 	fullredisplay()
 	while not editor.quit do
 		local k = editor.nextk()
