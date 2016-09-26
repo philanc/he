@@ -210,13 +210,13 @@ local function readstr(prompt)
 	-- [read only ascii or latin1 printable chars - no tab]
 	-- [ no edition except bksp ]
 	-- if ^G then return nil
-	local s = ""
-	msg(prompt)
 	local function disp(s) 
-		go(editor.scrl, #prompt+1); cleareol(); outf(s)
-	end
+		
+	end	local s = ""
+	msg(prompt)
 	while true do
-		disp(s)
+		-- display s
+		go(editor.scrl, #prompt+1); cleareol(); outf(s)
 		k = editor.nextk()
 		if (k >= 32 and k <127) or (k >=160 and k < 256) then
 			s = s .. char(k) 
