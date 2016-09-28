@@ -17,6 +17,10 @@ local function repr(x) return strf("%q", tostring(x)) end
 local function max(x, y) if x < y then return y else return x end end 
 local function min(x, y) if x < y then return x else return y end end 
 
+local function pad(s, w) -- pad a string to fit width w
+	if #s >= w then return s:sub(1,w) else return s .. rep(' ', w-#s) end
+end
+
 local out, outf, outdbg = term.out, term.outf, term.outdbg
 local go, cleareol, color = term.golc, term.cleareol, term.color
 local col, keys = term.colors, term.keys
@@ -42,7 +46,6 @@ local style = {
 	high = function() color(col.red, col.bold) end, 
 	msg = function() color(col.normal); color(col.green) end, 
 --~ 	sel = function() color(col.reverse) end, 
---~ 	sel = function() color(col.cyan, col.bold) end, 
 	sel = function() color(col.magenta, col.bold) end, 
 	bckg = function() color(col.black, col.bgyellow) end, 
 }
@@ -122,6 +125,7 @@ end
 local editor = {
 	quit = false, -- set to true to quit editor_loop()
 	nextk = term.input(), -- the "read next key" function
+	buflist = {},  -- list of buffers
 }
 
 
@@ -137,6 +141,7 @@ local function bufnew(ll)
 		li=1,      -- index in ll of the line at the top of the box
 		chgd=true, -- true if buffer has changed since last display
 	}
+	table.insert(editor.buflist, buf)
 	return buf
 end
 
@@ -167,7 +172,7 @@ local function adjcursor(buf)
 			break
 		end
 	end
-	go(buf.box.x + cx - 1, buf.box.y + cy - 1); io.flush()
+	go(buf.box.x + cx - 1, buf.box.y + cy - 1); flush()
 end -- adjcursor
 
 
@@ -217,19 +222,13 @@ local function fullredisplay()
 	-- visually check that edition does not overflow buf box]
 	editor.scrbox = boxnew(1, 1, editor.scrl, editor.scrc)
 	boxfill(editor.scrbox, NDC, style.bckg)
-	buf.box = boxnew(3, 4, editor.scrl-4, editor.scrc-6)
+	buf.box = boxnew(2, 2, editor.scrl-3, editor.scrc-2)
 	buf.chgd = true
 	bufredisplay(buf)
 end --fullredisplay
 
 ------------------------------------------------------------------------
 -- dialog functions
-
-local function pad(s, w) 
-	-- pad a string to fit width w
-	if #s >= w then return s:sub(1,w) end
-	return s .. rep(' ', w-#s)
-end
 
 local function msg(m)
 	-- display a message m on last screen line
@@ -264,6 +263,9 @@ end --readstr
 
 ------------------------------------------------------------------------
 -- buffer utility functions
+-- use these functions instead of direct buf.ll manipulation. 
+-- This will make it easier to change or enrich the 
+-- representation later. (eg. syntax coloring, undo/redo, ...)
 
 -- test if at end / beginning of  line  (eol, bol)
 local function ateol(buf) return buf.cj >= #buf.ll[buf.ci] end
@@ -272,10 +274,38 @@ local function atbol(buf) return buf.cj <= 0 end
 local function ateot(buf) return (buf.ci == #buf.ll) and ateol(buf) end
 local function atbot(buf) return (buf.ci == 1) and atbol(buf) end
 
+-- modification at cursor line
+
+local function getline(buf)
+	-- return current line and cursor position in line
+	return buf.ll[buf.ci], buf.cj
+end
+
+local function setline(buf, s)
+	buf.ll[buf.ci] = s
+	buf.chgd = true
+end
+
+local function insline(buf, s)
+	if ateot(buf) then table.insert(buf.ll, s) -- append
+	else table.insert(buf.ll, buf.ci, s) -- insert
+	end
+	buf.chgd = true
+end
+
+local function remline(buf)
+	table.remove(buf.ll, buf.ci)
+	buf.chgd = true
+end
+
 ------------------------------------------------------------------------
 -- editor actions
 
-local function anop() end -- do nothing (NOP)
+local function anop()
+	-- do nothing. cancel selection if any
+	buf.si, buf.sj = nil, nil
+	buf.chgd = true
+end 
 
 local function adown()
 	buf.ci = min(buf.ci + 1, #buf.ll)
@@ -317,26 +347,22 @@ local function apgup()
 end
 
 local function anl()
-	local l = buf.ll[buf.ci]
-	table.insert(buf.ll, buf.ci, l:sub(1, buf.cj))
-	buf.ll[buf.ci + 1] = l:sub(buf.cj + 1)
-	buf.ci = buf.ci + 1
-	buf.cj = 0
-	buf.chgd = true
+	local l, cj = getline(buf)
+	insline(buf, l:sub(1, cj)); adown()
+	setline(buf, l:sub(cj + 1)); ahome()
 end
 
 local function adel()
-	local ci, cj = buf.ci, buf.cj
-	local l = buf.ll[ci]
+	local l, cj = getline(buf)
+	if ateot(buf) then return end
 	if ateol(buf) then
-		local l1 = buf.ll[ci+1]
-		if not l1 then return end -- at eot
-		table.remove(buf.ll, ci+1)
-		buf.ll[ci] = l .. l1
+		adown()
+		local l1 = getline(buf)
+		remline(buf) ; aup()
+		setline(buf, l .. l1)
 	else
-		buf.ll[ci] = l:sub(1,cj) .. l:sub(cj+2)
+		setline(buf, l:sub(1,cj) .. l:sub(cj+2))
 	end
-	buf.chgd = true
 end
 
 local function abksp()
@@ -345,19 +371,17 @@ local function abksp()
 end
 
 local function ainsch(k)
-	local ci, cj = buf.ci, buf.cj
-	local l = buf.ll[ci]
-	buf.ll[ci] = l:sub(1, cj) .. char(k) .. l:sub(cj+1)
-	buf.cj = cj + 1
-	buf.chgd = true
+	local l, cj = getline(buf)
+	setline(buf, l:sub(1, cj) .. char(k) .. l:sub(cj+1))
+	right()
 end
 
 local function aopenfile()
 	local fn = readstr("open file: ")
 	if not fn then msg""; return end
-	ll, errmsg = readfile(fn)
+	local ll, errmsg = readfile(fn)
 	if not ll then msg(errmsg); return end
-	buf = bufnew(ll) -- [tmp. forget about the former buf!!]
+	buf = bufnew(ll) 
 	buf.actions = editor.edit_actions
 	fullredisplay()
 end
@@ -368,10 +392,35 @@ local function atest()
 	msg("the string is: '"..s.."'")
 end--atest
 
+local function actrlx()
+	local k = editor.nextk()
+	local bname = '^X-' .. term.keyname(k)
+	msg(bname)
+	local act = editor.ctrlx_actions[k]
+	if act then 
+		act() 
+	else
+		msg(bname .. " not bound")
+	end
+end--actrlx
+
+local function amark()
+	buf.si, buf.sj = buf.ci, buf.cj
+	msg("Mark set.")
+	buf.chgd = true
+end
+
+local function exch_mark()
+	if buf.si then
+		buf.si, buf.ci = buf.ci, buf.si
+		buf.sj, buf.cj = buf.cj, buf.sj
+	end
+end
 ------------------------------------------------------------------------
 -- bindings
 
 editor.edit_actions = { -- actions binding for text edition
+	[0] = amark,   -- ^@
 	[1] = ahome,   -- ^A
 	[2] = aleft,   -- ^B
 	[4] = adel,    -- ^D
@@ -386,6 +435,7 @@ editor.edit_actions = { -- actions binding for text edition
 	[16] = aup,    -- ^P
 	[17] = function() editor.quit = true end, -- ^Q
 	[20] = atest,  -- ^T
+	[24] = actrlx,  -- ^X
 	--
 	[keys.kpgup] = apgup,
 	[keys.kpgdn] = apgdn,
@@ -400,13 +450,20 @@ editor.edit_actions = { -- actions binding for text edition
 
 }--edit_actions
 
+editor.ctrlx_actions = {
+	[7] = anop,    -- ^G (do nothing - cancel ^X prefix)
+	[24] = exch_mark,  -- ^X^X
+
+}--ctrlx_actions
+
+
 function editor_loop()
 	tl = he.fgetlines'zztest' -- [testfile. no file open for the moment]
 	style.normal()
 	buf = bufnew(tl)
 	buf.actions = editor.edit_actions
 	--
-	buf.si, buf.sj = 6, 3
+--~ 	buf.si, buf.sj = 6, 3
 	--
 	fullredisplay()
 	while not editor.quit do
