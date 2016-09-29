@@ -596,7 +596,7 @@ function main()
 		print(msg)
 		os.exit(1)
 	end
-	pp(editor.kll)
+--~ 	pp(editor.kll)
 end
 
 main()
