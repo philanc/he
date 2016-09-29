@@ -324,13 +324,19 @@ local function insline(buf, s)
 end
 
 local function remline(buf)
-	table.remove(buf.ll, buf.ci)
+	local i = buf.ci
+	local l = buf.ll[i]
+	table.remove(buf.ll, i)
 	buf.chgd = true
+	return l
 end
 
 local function remnextline(buf)
-	table.remove(buf.ll, buf.ci+1)
+	local i = buf.ci + 1
+	local l = buf.ll[i]
+	table.remove(buf.ll, i)
 	buf.chgd = true
+	return l
 end
 
 ------------------------------------------------------------------------
@@ -422,9 +428,12 @@ local function aopenfile()
 end
 
 local function atest()
-	s = readstr("enter a string: ")
-	if not s then msg"NIL!" ; return end
-	msg("the string is: '"..s.."'")
+--~ 	s = readstr("enter a string: ")
+--~ 	if not s then msg"NIL!" ; return end
+--~ 	msg("the string is: '"..s.."'")
+	buf.ll = editor.kll
+	buf.ci, buf.cj = 1, 1
+	buf.chgd = true
 end--atest
 
 local function actrlx()
@@ -472,17 +481,27 @@ end--copysel
 
 local function wipe()
 	if not buf.si then msg("No selection."); return end
---~ 	copysel()
-	-- now delete sel
+	editor.kll = {}
 	-- make sure cursor is at beg of selection
 	if markbeforecur(buf) then exch_mark() end 
 	local ci, cj = getcur(buf)
 	local si, sj = getsel(buf)
 	local l1, l2 = getline(buf), getline(buf, si)
 	setline(buf, l1:sub(1, cj) .. l2:sub(sj+1))
-	for i = ci+1, si do 
-		remnextline(buf) 
+	if ci == si then
+		editor.kll[1] = l1:sub(cj+1, sj)
+		goto done
 	end
+	editor.kll[1] = l1:sub(cj+1)
+	for i = ci+1, si do 
+		local l3 = remnextline(buf) 
+		if i < si then 	
+			table.insert(editor.kll, l3)
+		else -- last sel line
+			table.insert(editor.kll, l3:sub(1, sj))
+		end
+	end
+	::done::
 	buf.si = nil
 	buf.chgd = true
 end--wipe
@@ -577,6 +596,7 @@ function main()
 		print(msg)
 		os.exit(1)
 	end
+	pp(editor.kll)
 end
 
 main()
