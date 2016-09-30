@@ -179,6 +179,7 @@ local function bufnew(ll)
 		ci=1, cj=0,   -- text cursor (line ci, offset cj)
 		li=1,      -- index in ll of the line at the top of the box
 		chgd=true, -- true if buffer has changed since last display
+		curstack = { {1, 0} } -- cursor stack (for push,pop opns)
 	}
 	table.insert(editor.buflist, buf)
 	return buf
@@ -285,6 +286,14 @@ end
 
 local function getcur(buf) return buf.ci, buf.cj end
 local function getsel(buf) return buf.si, buf.sj end
+local function pushcur(buf) 
+	table.insert(buf.curstack, {buf.ci, buf.cj, buf.si, buf.sj})
+end
+local function popcur(buf)
+	local ct = table.remove(buf.curstack)
+	if not ct then return end -- nothing left in curstack: do nothing
+	buf.ci, buf.cj, buf.si, buf.sj = table.unpack(ct)
+end
 
 local function getselbounds(buf)
 	if buf.si then
@@ -300,7 +309,20 @@ local function getselbounds(buf)
 	end
 end
 
-		
+function setcur(buf, i, j)
+	if not i or i > #buf.ll then i = #buf.ll end
+	if i < 1 then i = 1 end
+	if not j or j > #buf.ll[i] then j = #buf.ll[i] end
+	if j < 0 then j = 0 end
+	buf.ci, buf.cj = i, j
+	return i, j
+end
+
+-- thse functions allow to move up/down without losing the original column
+-- position even when going thru shorter lines
+function curup(buf) buf.ci = max(1, buf.ci-1) end
+function curdown(buf) buf.ci = min(#buf.ll, buf.ci+1) end
+	
 
 -- modification at cursor line
 
@@ -349,41 +371,43 @@ local function anop()
 end 
 
 local function adown()
-	buf.ci = min(buf.ci + 1, #buf.ll)
+	curdown(buf)
 end
 
 local function aup()
-	buf.ci = max(buf.ci - 1, 1)
+	curup(buf)
 end
 
 local function ahome()
-	buf.cj = 0
+	local ci, cj = getcur(buf); setcur(buf, ci, 0) 
 end
 
 local function aend()
-	buf.cj = #buf.ll[buf.ci]
+	local ci, cj = getcur(buf); setcur(buf, ci) 
 end
 
 local function aright()
 	if ateot(buf) then return end
-	if ateol(buf) then ahome(buf); adown(buf)
-	else buf.cj = buf.cj + 1 end
+	if ateol(buf) then ahome(buf); adown(buf); return end
+	local ci, cj = getcur(buf); setcur(buf, ci, cj+1) 
 end
 	
 local function aleft()
-	-- at eol, cj maybe larger than #l when going 
-	-- up or down from longer lines
-	buf.cj = min(buf.cj, #buf.ll[buf.ci])
+	local ci, cj = getcur(buf)
 	if atbot(buf) then return end
-	if atbol(buf) then aup(buf); aend(buf)
-	else buf.cj = buf.cj - 1  end
+	-- adjust eol (cj may be > eol when moving up/down)
+	if ateol(buf) then ci, cj = setcur(buf, ci) end 
+	if atbol(buf) then aup(buf); aend(buf); return end
+	setcur(buf, ci, cj - 1)
 end
 
 local function apgdn()
-	buf.ci = min(buf.ci + (buf.box.l - 2), #buf.ll)
+	local ci, cj = getcur(buf)
+	setcur(buf, ci + (buf.box.l - 2), cj)
 end
 
 local function apgup()
+	local ci, cj = getcur(buf)
 	buf.ci = max(buf.ci - (buf.box.l - 2), 1)
 end
 
@@ -426,15 +450,6 @@ local function aopenfile()
 	buf.actions = editor.edit_actions
 	fullredisplay()
 end
-
-local function atest()
---~ 	s = readstr("enter a string: ")
---~ 	if not s then msg"NIL!" ; return end
---~ 	msg("the string is: '"..s.."'")
-	buf.ll = editor.kll
-	buf.ci, buf.cj = 1, 1
-	buf.chgd = true
-end--atest
 
 local function actrlx()
 	local k = editor.nextk()
@@ -505,6 +520,16 @@ local function wipe()
 	buf.si = nil
 	buf.chgd = true
 end--wipe
+
+
+local function atest()
+--~ 	s = readstr("enter a string: ")
+--~ 	if not s then msg"NIL!" ; return end
+--~ 	msg("the string is: '"..s.."'")
+	buf.ll = editor.kll
+	setcur(buf, 1, 0)
+	buf.chgd = true
+end--atest
 
 
 ------------------------------------------------------------------------
