@@ -1,5 +1,6 @@
 -- editfile.lua
 -- !!! WORK IN PROGRESS !!!
+-- @@@@ cursor and display bug when wipe/yank many lines (more than fit in scr)
 ------------------------------------------------------------------------
 
 local he = require"he"
@@ -521,6 +522,26 @@ local function wipe()
 	buf.chgd = true
 end--wipe
 
+local function yank()
+	if not editor.kll or #editor.kll == 0 then return end
+	local l = getline(buf)
+	local ci, cj = getcur(buf)
+	local l1, l2 = l:sub(1, cj), l:sub(cj+1)
+	if #editor.kll == 1 then 
+		setline(buf, l1 .. editor.kll[1] .. l2)
+		setcur(buf, ci, cj + #editor.kll[1])
+		return
+	end
+	local kln = #editor.kll
+	setline(buf, l1 .. editor.kll[1])
+	for i = 2, kln-1  do
+		aend(); anl(); setline(buf, editor.kll[i])
+	end
+	aend(); anl(); setline(buf, editor.kll[kln] .. l2)
+	ci, cj = getcur(buf); setcur(buf, ci, #editor.kll[kln])
+	buf.chgd = true
+end--yank
+
 
 local function atest()
 --~ 	s = readstr("enter a string: ")
@@ -552,7 +573,8 @@ editor.edit_actions = { -- actions binding for text edition
 	[17] = function() editor.quit = true end, -- ^Q
 	[20] = atest,  -- ^T
 	[23] = wipe,   -- ^W
-	[24] = actrlx,  -- ^X
+	[24] = actrlx, -- ^X
+	[25] = yank,   -- ^Y
 	--
 	[keys.kpgup] = apgup,
 	[keys.kpgdn] = apgdn,
