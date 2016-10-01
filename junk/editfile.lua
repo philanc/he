@@ -328,7 +328,7 @@ local function addcur(di, dj)
 end
 
 -- cursor movement -- return true, or nil/false if movement is not possible
-local function curhome() buf.cj = 1; return true end
+local function curhome() buf.cj = 0; return true end
 local function curend() buf.cj = #buf.ll[buf.ci]; return true end
 local function curright() return not ateol() and addcur(0, 1) end
 local function curleft() return not atbol() and addcur(0, -1) end
@@ -350,6 +350,8 @@ local function setline(s)
 end
 
 local function insline(s)
+	-- insert a line above current line
+	-- if at end of text, append the line.
 	if ateot() then table.insert(buf.ll, s) -- append
 	else table.insert(buf.ll, buf.ci, s) -- insert
 	end
@@ -357,6 +359,9 @@ local function insline(s)
 end
 
 local function remnextline()
+	-- remove and return next line
+	-- return nil if already on the last line
+	if atlast() then return end
 	local i = buf.ci + 1
 	local l = buf.ll[i]
 	table.remove(buf.ll, i)
@@ -383,13 +388,8 @@ local function aleft()
 	return curleft() or (curup() and curend())
 end
 
-local function apgdn()
-	for i = 1, buf.box.l - 2 do curdown() end
-end
-
-local function apgup()
-	for i = 1, buf.box.l - 2 do curup() end
-end
+local function apgdn() for i = 1, buf.box.l - 2 do curdown() end end
+local function apgup() for i = 1, buf.box.l - 2 do curup() end end
 
 local function anl()
 	local l, cj = getline()
