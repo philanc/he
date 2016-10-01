@@ -500,6 +500,13 @@ local function wipe()
 	buf.chgd = true
 end--wipe
 
+local function kill() -- wipe from cursor to end of line
+	local l, cj = getline()
+	editor.kll = { l:sub(cj+1) }
+	return setline(l:sub(1, cj))
+end--kill
+	
+
 local function yank()
 	if not editor.kll or #editor.kll == 0 then return end
 	local l = getline()
@@ -543,6 +550,7 @@ editor.edit_actions = { -- actions binding for text edition
 	[6] = aright,  -- ^F
 	[7] = anop,    -- ^G (do nothing)
 	[8] = abksp,   -- ^H
+	[11] = kill,   -- ^k
 	[12] = function() fullredisplay() end, -- ^L
 	[13] = anl,    -- ^M (insert newline)
 	[14] = curdown,  -- ^N
