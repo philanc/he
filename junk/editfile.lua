@@ -45,6 +45,7 @@ end
 local style = {
 	normal = function() color(col.normal) end, 
 	high = function() color(col.red, col.bold) end, 
+	status = function() color(col.red, col.bold) end, 
 	msg = function() color(col.normal); color(col.green) end, 
 --~ 	sel = function() color(col.reverse) end, 
 	sel = function() color(col.magenta, col.bold) end, 
@@ -137,6 +138,12 @@ local editor = {
 ------------------------------------------------------------------------
 -- dialog functions
 
+local function status(m)
+	m = pad(m, editor.scrc)
+	go(1, 1); cleareol(); style.status()
+	out(m); style.normal(); flush()
+end
+
 local function msg(m)
 	-- display a message m on last screen line
 	m = pad(m, editor.scrc)
@@ -172,6 +179,15 @@ end --readstr
 -- buf is the current buffer
 local buf = {}
 
+local function statusline()
+	local s
+	if buf.si then
+		s = strf("%d [%d:%d] [%d:%d]", buf.li, buf.ci, buf.cj, buf.si, buf.sj)
+	else
+		s = strf("%d [%d:%d]", buf.li, buf.ci, buf.cj)
+	end
+	return s
+end--statusline
 
 local function bufnew(ll)
 	-- ll is a list of lines
@@ -187,7 +203,7 @@ local function bufnew(ll)
 end
 
 local function adjcursor(buf)
-	if buf.chgd then return end 
+--~ 	if buf.chgd then return end 
 	local bl = buf.box.l
 	if buf.ci < buf.li or buf.ci >= buf.li+bl then 
 		-- cursor has moved out of box.
@@ -196,6 +212,7 @@ local function adjcursor(buf)
 		buf.chgd = true
 		return
 	end
+	if buf.chgd then return end 
 	-- here, assume that cursor will move within the box
 	local cx = buf.ci - buf.li + 1
 	local cy = 1
@@ -213,6 +230,7 @@ local function adjcursor(buf)
 			break
 		end
 	end
+	status(statusline())
 	go(buf.box.x + cx - 1, buf.box.y + cy - 1); flush()
 end -- adjcursor
 
@@ -256,6 +274,7 @@ local function redisplay(buf)
 	end
 	buf.chgd = false
 end --redisplay
+
 
 local function fullredisplay()
 	editor.scrl, editor.scrc = term.getscrlc()
@@ -521,7 +540,8 @@ end--kill
 	
 
 local function yank()
-	if not editor.kll or #editor.kll == 0 then return end
+	if not editor.kll or #editor.kll == 0 then 
+		msg("nothing to yank!"); return end
 	local l = getline()
 	local ci, cj = getcur()
 	local l1, l2 = l:sub(1, cj), l:sub(cj+1)
@@ -533,9 +553,9 @@ local function yank()
 	local kln = #editor.kll
 	setline(l1 .. editor.kll[1])
 	for i = 2, kln-1  do
-		aend(); anl(); setline(editor.kll[i])
+		curend(); anl(); setline(editor.kll[i])
 	end
-	aend(); anl(); setline(editor.kll[kln] .. l2)
+	curend(); anl(); setline(editor.kll[kln] .. l2)
 	ci, cj = getcur(); setcur(ci, #editor.kll[kln])
 	buf.chgd = true
 end--yank
