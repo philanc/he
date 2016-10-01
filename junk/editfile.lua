@@ -404,8 +404,7 @@ local function adel()
 	local l, cj = getline()
 	if ateot() then return false end
 	if ateol() then
-		local l1 = remnextline()
-		setline(l .. l1)
+		setline(l .. remnextline())
 	else
 		setline(l:sub(1,cj) .. l:sub(cj+2))
 	end
@@ -504,8 +503,8 @@ end--wipe
 
 local function kill() 
 	-- wipe from cursor to end of line
-	-- do not modify the kill buffer if at eol
-	if ateol() then return end
+	-- del nl but do not modify the kill buffer if at eol
+	if ateol() then return adel() end
 	local l, cj = getline()
 	editor.kll = { l:sub(cj+1) }
 	return setline(l:sub(1, cj))
