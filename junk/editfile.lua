@@ -203,16 +203,15 @@ local function bufnew(ll)
 end
 
 local function adjcursor(buf)
---~ 	if buf.chgd then return end 
+	-- first, adjust buf.li
 	local bl = buf.box.l
 	if buf.ci < buf.li or buf.ci >= buf.li+bl then 
 		-- cursor has moved out of box.
 		-- set li so that ci is in the middle of the box
 		buf.li = max(1, buf.ci-bl//2) 
 		buf.chgd = true
-		return
 	end
-	if buf.chgd then return end 
+	if buf.chgd then return end -- (adjusted li or real content change)
 	-- here, assume that cursor will move within the box
 	local cx = buf.ci - buf.li + 1
 	local cy = 1
