@@ -27,7 +27,7 @@ local yield = coroutine.yield
 local repr = function(x) return strf("%q", tostring(x)) end
 
 ------------------------------------------------------------------------
--- following definitions (from output to restore) are
+-- following definitions (from term.clear to term.restore) are
 -- based on public domain code by Luiz Henrique de Figueiredo 
 -- http://lua-users.org/lists/lua-l/2009-12/msg00942.html
 
