@@ -329,11 +329,13 @@ end
 
 -- cursor movement -- return true, or nil/false if movement is not possible
 local function curhome() buf.cj = 0; return true end
-local function curend() buf.cj = #buf.ll[buf.ci]; return true end
+local function curend() setcur(buf.ci); return true end
 local function curright() return not ateol() and addcur(0, 1) end
 local function curleft() return not atbol() and addcur(0, -1) end
 local function curup() return not atfirst() and addcur(-1, 0) end
 local function curdown() return not atlast() and addcur(1, 0) end
+local function curbot() return not atbot() and setcur(1, 0) end
+local function cureot() return not ateot() and setcur() end
 
 -- modification at cursor line
 
@@ -500,7 +502,10 @@ local function wipe()
 	buf.chgd = true
 end--wipe
 
-local function kill() -- wipe from cursor to end of line
+local function kill() 
+	-- wipe from cursor to end of line
+	-- do not modify the kill buffer if at eol
+	if ateol() then return end
 	local l, cj = getline()
 	editor.kll = { l:sub(cj+1) }
 	return setline(l:sub(1, cj))
@@ -527,6 +532,17 @@ local function yank()
 	buf.chgd = true
 end--yank
 
+local function aesc()
+	local k = editor.nextk()
+	local bname = 'ESC-' .. term.keyname(k)
+	msg(bname)
+	local act = editor.esc_actions[k]
+	if act then 
+		act() 
+	else
+		msg(bname .. " not bound")
+	end
+end--aesc
 
 local function atest()
 --~ 	s = readstr("enter a string: ")
@@ -561,6 +577,8 @@ editor.edit_actions = { -- actions binding for text edition
 	[23] = wipe,   -- ^W
 	[24] = actrlx, -- ^X
 	[25] = yank,   -- ^Y
+	[27] = aesc,   -- ESC
+	
 	--
 	[keys.kpgup] = apgup,
 	[keys.kpgdn] = apgdn,
@@ -578,8 +596,13 @@ editor.edit_actions = { -- actions binding for text edition
 editor.ctrlx_actions = {
 	[7] = anop,    -- ^G (do nothing - cancel ^X prefix)
 	[24] = exch_mark,  -- ^X^X
-
 }--ctrlx_actions
+
+editor.esc_actions = {
+	[7] = anop,     -- esc^G (do nothing - cancel ^X prefix)
+	[60] = curbot,  -- esc <
+	[62] = cureot,  -- esc >
+}--esc_actions
 
 
 function editor_loop()
