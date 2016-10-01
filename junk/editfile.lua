@@ -313,6 +313,14 @@ local function getselbounds()
 	end
 end
 
+local function setcurj(j) -- set cursor on the current line
+	local ci = getcur()
+	local ln = #buf.ll[ci]
+	if not j or j > ln then j = ln end
+	buf.cj = j
+	return j
+end
+		
 local function setcur(i, j)
 	if not i or i > #buf.ll then i = #buf.ll end
 	if i < 1 then i = 1 end
@@ -443,6 +451,25 @@ local function actrlx()
 	end
 end--actrlx
 
+local function asearchagain()
+	repeat
+		local l, cj = getline()
+		local j = l:find(editor.pat, cj+2)
+		if j then 
+			setcurj(j-1)
+			msg("found!")
+			return true
+		end
+	until not curdown()
+	msg("not found")
+	popcur()
+end
+
+local function asearch()
+	editor.pat = readstr("Search: ")
+	return asearchagain()
+end
+
 local function amark()
 	buf.si, buf.sj = buf.ci, buf.cj
 	msg("Mark set.")
@@ -455,24 +482,6 @@ local function exch_mark()
 		buf.sj, buf.cj = buf.cj, buf.sj
 	end
 end
-
-local function copysel()
-	if not buf.si then msg("No selection."); return end
-	editor.kll = {}
-	local bi, bj, ei, ej = getselbounds()
-	if bi == ei then -- all selection is within the line
-		local l = getline()
-		editor.kll[1] = l:sub(bj, ej-1) -- if ei=bj, return nothing
-		return
-	end
-	-- si is not on the same line
-	editor.kll[1] = l:sub(bj)
-	for i = bi+1, ei-1 do
-		table.insert(editor.kll, getline(i))
-	end
-	table.insert(editor.kll, getline(ei):sub(1, ej-1)) -- last sel line
-	buf.si = nil
-end--copysel
 
 local function wipe()
 	if not buf.si then msg("No selection."); return end
@@ -572,6 +581,8 @@ editor.edit_actions = { -- actions binding for text edition
 	[15] = aopenfile,  -- ^O
 	[16] = curup,    -- ^P
 	[17] = function() editor.quit = true end, -- ^Q
+	[18] = asearchagain,  -- ^R
+	[19] = asearch,  -- ^S
 	[20] = atest,  -- ^T
 	[23] = wipe,   -- ^W
 	[24] = actrlx, -- ^X
