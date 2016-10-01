@@ -101,7 +101,7 @@ local function boxline(b, bl, l, insel, jon, joff)
 	-- if s is tool long for the box, return the
 	-- index of the first undisplayed char in l
 	-- insel: true if line start is in the selection
-	-- jon: if defined and not insel, position of beg of sel
+	-- jon: if defined and not insel, position of beg of selection
 	-- joff: if defined, position of end of selection
 	local bc = b.c
 	local cc = 0 --curent col in box
@@ -275,28 +275,28 @@ end --fullredisplay
 -- representation later. (eg. syntax coloring, undo/redo, ...)
 
 -- test if at end / beginning of  line  (eol, bol)
-local function ateol(buf) return buf.cj >= #buf.ll[buf.ci] end
-local function atbol(buf) return buf.cj <= 0 end
+local function ateol() return buf.cj >= #buf.ll[buf.ci] end
+local function atbol() return buf.cj <= 0 end
 -- test if at  end / beginning of  text (eot, bot)
-local function ateot(buf) return (buf.ci == #buf.ll) and ateol(buf) end
-local function atbot(buf) return (buf.ci == 1) and atbol(buf) end
+local function ateot() return (buf.ci == #buf.ll) and ateol() end
+local function atbot() return (buf.ci == 1) and atbol() end
 
-local function markbeforecur(buf)
+local function markbeforecur()
 	return (buf.si < buf.ci) or (buf.si == buf.ci and buf.sj < buf.cj)
 end
 
-local function getcur(buf) return buf.ci, buf.cj end
-local function getsel(buf) return buf.si, buf.sj end
-local function pushcur(buf) 
+local function getcur() return buf.ci, buf.cj end
+local function getsel() return buf.si, buf.sj end
+local function pushcur() 
 	table.insert(buf.curstack, {buf.ci, buf.cj, buf.si, buf.sj})
 end
-local function popcur(buf)
+local function popcur()
 	local ct = table.remove(buf.curstack)
 	if not ct then return end -- nothing left in curstack: do nothing
 	buf.ci, buf.cj, buf.si, buf.sj = table.unpack(ct)
 end
 
-local function getselbounds(buf)
+local function getselbounds()
 	if buf.si then
 		local ci, cj, si, sj = buf.ci, buf.cj, buf.si, buf.sj
 		local bi, bj, ei, ej
@@ -310,7 +310,7 @@ local function getselbounds(buf)
 	end
 end
 
-function setcur(buf, i, j)
+function setcur(i, j)
 	if not i or i > #buf.ll then i = #buf.ll end
 	if i < 1 then i = 1 end
 	if not j or j > #buf.ll[i] then j = #buf.ll[i] end
@@ -321,40 +321,32 @@ end
 
 -- thse functions allow to move up/down without losing the original column
 -- position even when going thru shorter lines
-function curup(buf) buf.ci = max(1, buf.ci-1) end
-function curdown(buf) buf.ci = min(#buf.ll, buf.ci+1) end
+function curup() buf.ci = max(1, buf.ci-1) end
+function curdown() buf.ci = min(#buf.ll, buf.ci+1) end
 	
 
 -- modification at cursor line
 
-local function getline(buf, i)
+local function getline(i)
 	-- return current line and cursor position in line
 	-- if i is provided, return line i
 	if i then return buf.ll[i], 1 end
 	return buf.ll[buf.ci], buf.cj
 end
 
-local function setline(buf, s)
+local function setline(s)
 	buf.ll[buf.ci] = s
 	buf.chgd = true
 end
 
-local function insline(buf, s)
-	if ateot(buf) then table.insert(buf.ll, s) -- append
+local function insline(s)
+	if ateot() then table.insert(buf.ll, s) -- append
 	else table.insert(buf.ll, buf.ci, s) -- insert
 	end
 	buf.chgd = true
 end
 
-local function remline(buf)
-	local i = buf.ci
-	local l = buf.ll[i]
-	table.remove(buf.ll, i)
-	buf.chgd = true
-	return l
-end
-
-local function remnextline(buf)
+local function remnextline()
 	local i = buf.ci + 1
 	local l = buf.ll[i]
 	table.remove(buf.ll, i)
@@ -372,73 +364,80 @@ local function anop()
 end 
 
 local function adown()
-	curdown(buf)
+	curdown()
 end
 
 local function aup()
-	curup(buf)
+	curup()
 end
 
 local function ahome()
-	local ci, cj = getcur(buf); setcur(buf, ci, 0) 
+	local ci, cj = getcur(); setcur(ci, 0) 
 end
 
 local function aend()
-	local ci, cj = getcur(buf); setcur(buf, ci) 
+	local ci, cj = getcur(); setcur(ci) 
 end
 
 local function aright()
-	if ateot(buf) then return end
-	if ateol(buf) then ahome(buf); adown(buf); return end
-	local ci, cj = getcur(buf); setcur(buf, ci, cj+1) 
+	if ateot() then return end
+	if ateol() then ahome(); adown(); return end
+	local ci, cj = getcur(); setcur(ci, cj+1) 
 end
+
+--~ local function aright()
+--~ 	return ateot() 
+--~ 		or (ateol() and curhome() and curdown())
+--~ 		or curright()
+--~ end
+--~ local function aright()
+--~ 	return curright() or curdown() and curhome()
+--~ end
 	
 local function aleft()
-	local ci, cj = getcur(buf)
-	if atbot(buf) then return end
+	local ci, cj = getcur()
+	if atbot() then return end
 	-- adjust eol (cj may be > eol when moving up/down)
-	if ateol(buf) then ci, cj = setcur(buf, ci) end 
-	if atbol(buf) then aup(buf); aend(buf); return end
-	setcur(buf, ci, cj - 1)
+	if ateol() then ci, cj = setcur(ci) end 
+	if atbol() then aup(); aend(); return end
+	setcur(ci, cj - 1)
 end
 
 local function apgdn()
-	local ci, cj = getcur(buf)
-	setcur(buf, ci + (buf.box.l - 2), cj)
+	local ci, cj = getcur()
+	setcur(ci + (buf.box.l - 2), cj)
 end
 
 local function apgup()
-	local ci, cj = getcur(buf)
+	local ci, cj = getcur()
 	buf.ci = max(buf.ci - (buf.box.l - 2), 1)
 end
 
 local function anl()
-	local l, cj = getline(buf)
-	insline(buf, l:sub(1, cj)); adown()
-	setline(buf, l:sub(cj + 1)); ahome()
+	local l, cj = getline()
+	insline(l:sub(1, cj)); adown()
+	setline(l:sub(cj + 1)); ahome()
 end
 
 local function adel()
-	local l, cj = getline(buf)
-	if ateot(buf) then return end
-	if ateol(buf) then
-		adown()
-		local l1 = getline(buf)
-		remline(buf) ; aup()
-		setline(buf, l .. l1)
+	local l, cj = getline()
+	if ateot() then return end
+	if ateol() then
+		local l1 = remnextline()
+		setline(l .. l1)
 	else
-		setline(buf, l:sub(1,cj) .. l:sub(cj+2))
+		setline(l:sub(1,cj) .. l:sub(cj+2))
 	end
 end
 
 local function abksp()
-	if atbot(buf) then return end
-	aleft(buf) ; adel(buf)
+	if atbot() then return end
+	aleft() ; adel()
 end
 
 local function ainsch(k)
-	local l, cj = getline(buf)
-	setline(buf, l:sub(1, cj) .. char(k) .. l:sub(cj+1))
+	local l, cj = getline()
+	setline(l:sub(1, cj) .. char(k) .. l:sub(cj+1))
 	aright()
 end
 
@@ -480,18 +479,18 @@ end
 local function copysel()
 	if not buf.si then msg("No selection."); return end
 	editor.kll = {}
-	local bi, bj, ei, ej = getselbounds(buf)
+	local bi, bj, ei, ej = getselbounds()
 	if bi == ei then -- all selection is within the line
-		local l = getline(buf)
+		local l = getline()
 		editor.kll[1] = l:sub(bj, ej-1) -- if ei=bj, return nothing
 		return
 	end
 	-- si is not on the same line
 	editor.kll[1] = l:sub(bj)
 	for i = bi+1, ei-1 do
-		table.insert(editor.kll, getline(buf, i))
+		table.insert(editor.kll, getline(i))
 	end
-	table.insert(editor.kll, getline(buf, ei):sub(1, ej-1)) -- last sel line
+	table.insert(editor.kll, getline(ei):sub(1, ej-1)) -- last sel line
 	buf.si = nil
 end--copysel
 
@@ -499,18 +498,18 @@ local function wipe()
 	if not buf.si then msg("No selection."); return end
 	editor.kll = {}
 	-- make sure cursor is at beg of selection
-	if markbeforecur(buf) then exch_mark() end 
-	local ci, cj = getcur(buf)
-	local si, sj = getsel(buf)
-	local l1, l2 = getline(buf), getline(buf, si)
-	setline(buf, l1:sub(1, cj) .. l2:sub(sj+1))
+	if markbeforecur() then exch_mark() end 
+	local ci, cj = getcur()
+	local si, sj = getsel()
+	local l1, l2 = getline(), getline(si)
+	setline(l1:sub(1, cj) .. l2:sub(sj+1))
 	if ci == si then
 		editor.kll[1] = l1:sub(cj+1, sj)
 		goto done
 	end
 	editor.kll[1] = l1:sub(cj+1)
 	for i = ci+1, si do 
-		local l3 = remnextline(buf) 
+		local l3 = remnextline() 
 		if i < si then 	
 			table.insert(editor.kll, l3)
 		else -- last sel line
@@ -524,21 +523,21 @@ end--wipe
 
 local function yank()
 	if not editor.kll or #editor.kll == 0 then return end
-	local l = getline(buf)
-	local ci, cj = getcur(buf)
+	local l = getline()
+	local ci, cj = getcur()
 	local l1, l2 = l:sub(1, cj), l:sub(cj+1)
 	if #editor.kll == 1 then 
-		setline(buf, l1 .. editor.kll[1] .. l2)
-		setcur(buf, ci, cj + #editor.kll[1])
+		setline(l1 .. editor.kll[1] .. l2)
+		setcur(ci, cj + #editor.kll[1])
 		return
 	end
 	local kln = #editor.kll
-	setline(buf, l1 .. editor.kll[1])
+	setline(l1 .. editor.kll[1])
 	for i = 2, kln-1  do
-		aend(); anl(); setline(buf, editor.kll[i])
+		aend(); anl(); setline(editor.kll[i])
 	end
-	aend(); anl(); setline(buf, editor.kll[kln] .. l2)
-	ci, cj = getcur(buf); setcur(buf, ci, #editor.kll[kln])
+	aend(); anl(); setline(editor.kll[kln] .. l2)
+	ci, cj = getcur(); setcur(ci, #editor.kll[kln])
 	buf.chgd = true
 end--yank
 
@@ -548,7 +547,7 @@ local function atest()
 --~ 	if not s then msg"NIL!" ; return end
 --~ 	msg("the string is: '"..s.."'")
 	buf.ll = editor.kll
-	setcur(buf, 1, 0)
+	setcur(1, 0)
 	buf.chgd = true
 end--atest
 
