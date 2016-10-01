@@ -156,13 +156,10 @@ local function readstr(prompt)
 	-- [read only ascii or latin1 printable chars - no tab]
 	-- [ no edition except bksp ]
 	-- if ^G then return nil
-	local function disp(s) 
-		
-	end	local s = ""
+	local s = ""
 	msg(prompt)
 	while true do
-		-- display s
-		go(editor.scrl, #prompt+1); cleareol(); outf(s)
+		go(editor.scrl, #prompt+1); cleareol(); outf(s)	-- display s
 		k = editor.nextk()
 		if (k >= 32 and k <127) or (k >=160 and k < 256) then
 			s = s .. char(k) 
@@ -180,12 +177,9 @@ end --readstr
 local buf = {}
 
 local function statusline()
-	local s
-	if buf.si then
-		s = strf("%d [%d:%d] [%d:%d]", buf.li, buf.ci, buf.cj, buf.si, buf.sj)
-	else
-		s = strf("%d [%d:%d]", buf.li, buf.ci, buf.cj)
-	end
+	local s = strf("[%d:%d] ", buf.ci, buf.cj)
+	if buf.si then s = s .. strf("[%d:%d] ", buf.si, buf.sj) end
+	s = s .. strf("li=%d ", buf.li)
 	return s
 end--statusline
 
@@ -444,7 +438,7 @@ end
 local function ainsch(k)
 	local l, cj = getline()
 	setline(l:sub(1, cj) .. char(k) .. l:sub(cj+1))
-	aright()
+	curright()
 end
 
 local function aopenfile()
@@ -452,6 +446,7 @@ local function aopenfile()
 	if not fn then msg""; return end
 	local ll, errmsg = readfile(fn)
 	if not ll then msg(errmsg); return end
+	-- for the moment, forget about the current buffer... :-)
 	buf = bufnew(ll) 
 	buf.actions = editor.edit_actions
 	fullredisplay()
