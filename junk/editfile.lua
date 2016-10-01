@@ -277,9 +277,12 @@ end --fullredisplay
 -- test if at end / beginning of  line  (eol, bol)
 local function ateol() return buf.cj >= #buf.ll[buf.ci] end
 local function atbol() return buf.cj <= 0 end
--- test if at  end / beginning of  text (eot, bot)
-local function ateot() return (buf.ci == #buf.ll) and ateol() end
-local function atbot() return (buf.ci == 1) and atbol() end
+-- test if at  first or last line of text
+local function atfirst() return (buf.ci <= 1) end
+local function atlast() return (buf.ci >= #buf.ll) end
+-- test if at  end or beginning of  text (eot, bot)
+local function ateot() return atlast() and ateol() end
+local function atbot() return atfirst() and atbol() end
 
 local function markbeforecur()
 	return (buf.si < buf.ci) or (buf.si == buf.ci and buf.sj < buf.cj)
@@ -310,7 +313,7 @@ local function getselbounds()
 	end
 end
 
-function setcur(i, j)
+local function setcur(i, j)
 	if not i or i > #buf.ll then i = #buf.ll end
 	if i < 1 then i = 1 end
 	if not j or j > #buf.ll[i] then j = #buf.ll[i] end
@@ -319,11 +322,18 @@ function setcur(i, j)
 	return i, j
 end
 
--- thse functions allow to move up/down without losing the original column
--- position even when going thru shorter lines
-function curup() buf.ci = max(1, buf.ci-1) end
-function curdown() buf.ci = min(#buf.ll, buf.ci+1) end
-	
+local function addcur(di, dj) 
+	buf.ci, buf.cj = buf.ci + di, buf.cj + dj
+	return true
+end
+
+-- cursor movement -- return true, or nil/false if movement is not possible
+local function curhome() buf.cj = 1; return true end
+local function curend() buf.cj = #buf.ll[buf.ci]; return true end
+local function curright() return not ateol() and addcur(0, 1) end
+local function curleft() return not atbol() and addcur(0, -1) end
+local function curup() return not atfirst() and addcur(-1, 0) end
+local function curdown() return not atlast() and addcur(1, 0) end
 
 -- modification at cursor line
 
@@ -363,76 +373,45 @@ local function anop()
 	buf.chgd = true
 end 
 
-local function adown()
-	curdown()
-end
-
-local function aup()
-	curup()
-end
-
-local function ahome()
-	local ci, cj = getcur(); setcur(ci, 0) 
-end
-
-local function aend()
-	local ci, cj = getcur(); setcur(ci) 
-end
-
 local function aright()
-	if ateot() then return end
-	if ateol() then ahome(); adown(); return end
-	local ci, cj = getcur(); setcur(ci, cj+1) 
+	return curright() or curdown() and curhome()
 end
-
---~ local function aright()
---~ 	return ateot() 
---~ 		or (ateol() and curhome() and curdown())
---~ 		or curright()
---~ end
---~ local function aright()
---~ 	return curright() or curdown() and curhome()
---~ end
 	
 local function aleft()
-	local ci, cj = getcur()
-	if atbot() then return end
 	-- adjust eol (cj may be > eol when moving up/down)
-	if ateol() then ci, cj = setcur(ci) end 
-	if atbol() then aup(); aend(); return end
-	setcur(ci, cj - 1)
+	if ateol() then curend() end 
+	return curleft() or (curup() and curend())
 end
 
 local function apgdn()
-	local ci, cj = getcur()
-	setcur(ci + (buf.box.l - 2), cj)
+	for i = 1, buf.box.l - 2 do curdown() end
 end
 
 local function apgup()
-	local ci, cj = getcur()
-	buf.ci = max(buf.ci - (buf.box.l - 2), 1)
+	for i = 1, buf.box.l - 2 do curup() end
 end
 
 local function anl()
 	local l, cj = getline()
-	insline(l:sub(1, cj)); adown()
-	setline(l:sub(cj + 1)); ahome()
+	insline(l:sub(1, cj)); curdown()
+	setline(l:sub(cj + 1)); curhome()
+	return true
 end
 
 local function adel()
 	local l, cj = getline()
-	if ateot() then return end
+	if ateot() then return false end
 	if ateol() then
 		local l1 = remnextline()
 		setline(l .. l1)
 	else
 		setline(l:sub(1,cj) .. l:sub(cj+2))
 	end
+	return true
 end
 
 local function abksp()
-	if atbot() then return end
-	aleft() ; adel()
+	return aleft() and adel()
 end
 
 local function ainsch(k)
@@ -557,18 +536,18 @@ end--atest
 
 editor.edit_actions = { -- actions binding for text edition
 	[0] = amark,   -- ^@
-	[1] = ahome,   -- ^A
+	[1] = curhome,   -- ^A
 	[2] = aleft,   -- ^B
 	[4] = adel,    -- ^D
-	[5] = aend,    -- ^E
+	[5] = curend,    -- ^E
 	[6] = aright,  -- ^F
 	[7] = anop,    -- ^G (do nothing)
 	[8] = abksp,   -- ^H
 	[12] = function() fullredisplay() end, -- ^L
 	[13] = anl,    -- ^M (insert newline)
-	[14] = adown,  -- ^N
+	[14] = curdown,  -- ^N
 	[15] = aopenfile,  -- ^O
-	[16] = aup,    -- ^P
+	[16] = curup,    -- ^P
 	[17] = function() editor.quit = true end, -- ^Q
 	[20] = atest,  -- ^T
 	[23] = wipe,   -- ^W
@@ -577,14 +556,14 @@ editor.edit_actions = { -- actions binding for text edition
 	--
 	[keys.kpgup] = apgup,
 	[keys.kpgdn] = apgdn,
-	[keys.khome] = ahome,
-	[keys.kend] = aend,
+	[keys.khome] = curhome,
+	[keys.kend] = curend,
 	[keys.kdel] = adel, 
 	[keys.del] = abksp, 
 	[keys.kright] = aright,
 	[keys.kleft] = aleft,
-	[keys.kup] = aup,
-	[keys.kdown] = adown,
+	[keys.kup] = curup,
+	[keys.kdown] = curdown,
 
 }--edit_actions
 
