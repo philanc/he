@@ -4,9 +4,9 @@
 
 terminal utility module - unix only
 
-This module assumes the tty is in raw mode
-=> require the slua linenoise binding or spawn stty to do it
-
+This module assumes the tty is in raw mode. 
+It provides functions based on stty (so available on unix) to save, set 
+and restore tty modes.
 
 good ref on ANSI esc sequences:   
 https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -112,18 +112,8 @@ term.keys = { -- key code definitions
 	kdown          = 0xffec,
 	kleft          = 0xffeb,
 	kright         = 0xffea,
-	mouseleft      = 0xffe9,
-	mouseright     = 0xffe8,
-	mousemiddle    = 0xffe7,
-	mouserelease   = 0xffe6,
-	mousewheelup   = 0xffe5,
-	mousewheeldown = 0xffe4,  -- 0xffff-27
-	-- modifiers
---~ 	mod_alt        = 0x01,
 }
 
---~ local function sleep(n) local j=0 ; for i=1,n*1000000 do j=j+1 end end
---~ local morekeys = function() sleep(1); return ln.kbhit() end
 local keys = term.keys
 
 --special chars (for parsing esc sequences)
@@ -295,6 +285,7 @@ term.keyname = function(c)
 	return tostring(c)
 end
 
+------------------------------------------------------------------------
 -- poor man's tty mode management, based on stty
 -- (better use slua linenoise extension if available)
 
@@ -318,37 +309,27 @@ term.restoremode = function(mode)
 	return os.execute("stty " .. mode)
 end
 	
-	
-		
-		
-	
 ------------------------------------------------------------------------
 --[[ notes
 
 - io.read(0) - return "" or nil at eof  (never nil on tty stdin, so 
   cannot be used to replace kbhit() )
 
+- stty-based screen size function
 
--- stty_size() depends on he.shell
--- not useful if getscrlc works
--- => push it to another module using spawn stty for raw/cooked mode 
---    and get scr dim if linenoise extensions are not available
---
--- Alt: def setmode functions here with linenoise if avail or stty if not.
---
 term.stty_size = function()
 	-- return screen dimensions (number of lines, number of columns
-	local s, e = he.shell("stty size")
-	if e == 0 then
-		local l, c = s:match("(%d+)%s+(%d+)")
+	local fh = io.popen("stty size)
+	local sz = fh:read('a')
+	local succ, e, msg = fh:close()	
+	if succ then
+		local l, c = sz:match("(%d+)%s+(%d+)")
 		return l, c
 	else
 		return nil, "term: stty size error"
 	end
 end
 
-
-  
 ]]
 
 ------------------------------------------------------------------------

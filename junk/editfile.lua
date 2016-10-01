@@ -570,7 +570,7 @@ local function atest()
 --~ 	s = readstr("enter a string: ")
 --~ 	if not s then msg"NIL!" ; return end
 --~ 	msg("the string is: '"..s.."'")
-	buf.ll = editor.kll
+	buf.ll = editor.kll or {}
 	setcur(1, 0)
 	buf.chgd = true
 end--atest
@@ -602,18 +602,17 @@ editor.edit_actions = { -- actions binding for text edition
 	[24] = actrlx, -- ^X
 	[25] = yank,   -- ^Y
 	[27] = aesc,   -- ESC
-	
 	--
-	[keys.kpgup] = apgup,
-	[keys.kpgdn] = apgdn,
-	[keys.khome] = curhome,
-	[keys.kend] = curend,
-	[keys.kdel] = adel, 
-	[keys.del] = abksp, 
+	[keys.kpgup]  = apgup,
+	[keys.kpgdn]  = apgdn,
+	[keys.khome]  = curhome,
+	[keys.kend]   = curend,
+	[keys.kdel]   = adel, 
+	[keys.del]    = abksp, 
 	[keys.kright] = aright,
-	[keys.kleft] = aleft,
-	[keys.kup] = curup,
-	[keys.kdown] = curdown,
+	[keys.kleft]  = aleft,
+	[keys.kup]    = curup,
+	[keys.kdown]  = curdown,
 
 }--edit_actions
 
