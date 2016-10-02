@@ -5,10 +5,10 @@
 
 local he = require"he"
 he.interactive()
-local ln = require"linenoise"
+--~ local ln = require"linenoise"
 local term = require "term"
 
--- some local definitions
+-- some local definitions and utility functions
 
 local strf = string.format
 local byte, char, rep = string.byte, string.char, string.rep
@@ -47,7 +47,6 @@ local style = {
 	high = function() color(col.red, col.bold) end, 
 	status = function() color(col.red, col.bold) end, 
 	msg = function() color(col.normal); color(col.green) end, 
---~ 	sel = function() color(col.reverse) end, 
 	sel = function() color(col.magenta, col.bold) end, 
 	bckg = function() color(col.black, col.bgyellow) end, 
 }
@@ -132,6 +131,7 @@ local editor = {
 	quit = false, -- set to true to quit editor_loop()
 	nextk = term.input(), -- the "read next key" function
 	buflist = {},  -- list of buffers
+	bufindex = 1,  -- index of current buffer ( the buf global variable)
 }
 
 
@@ -180,6 +180,7 @@ local function statusline()
 	local s = strf("[%d:%d] ", buf.ci, buf.cj)
 	if buf.si then s = s .. strf("[%d:%d] ", buf.si, buf.sj) end
 	s = s .. strf("li=%d ", buf.li)
+	s = s .. strf("buf=%d ", editor.bufindex)
 	return s
 end--statusline
 
@@ -192,7 +193,6 @@ local function bufnew(ll)
 		chgd=true, -- true if buffer has changed since last display
 		curstack = { {1, 0} } -- cursor stack (for push,pop opns)
 	}
-	table.insert(editor.buflist, buf)
 	return buf
 end
 
@@ -451,17 +451,6 @@ function e.insch(k)
 	curright()
 end
 
-function e.openfile()
-	local fn = readstr("open file: ")
-	if not fn then msg""; return end
-	local ll, errmsg = readfile(fn)
-	if not ll then msg(errmsg); return end
-	-- for the moment, forget about the current buffer... :-)
-	buf = bufnew(ll) 
-	buf.actions = editor.edit_actions
-	fullredisplay()
-end
-
 function e.ctrlx()
 	local k = editor.nextk()
 	local bname = '^X-' .. term.keyname(k)
@@ -575,6 +564,34 @@ function e.esc()
 	end
 end--aesc
 
+function e.newbuffer(ll)
+	ll = ll or { "" } -- default is a buffer with one empty line
+	local b = bufnew(ll) 
+	b.actions = editor.edit_actions 
+	local bl = editor.buflist
+	bl[#bl+1] = b
+	editor.bufindex = #bl
+	buf = b
+	fullredisplay()
+end
+
+function e.findfile()
+	local fn = readstr("Open file: ")
+	if not fn then msg""; return end
+	local ll, errmsg = readfile(fn)
+	if not ll then msg(errmsg); return end
+	e.newbuffer(ll)
+--~ 	fullredisplay()
+end--findfile
+
+function e.nextbuffer()
+	local bln = #editor.buflist
+	editor.bufindex = editor.bufindex % bln + 1
+	buf = editor.buflist[editor.bufindex]
+	fullredisplay()
+end--nextbuffer
+
+
 function e.test()
 --~ 	s = readstr("enter a string: ")
 --~ 	if not s then msg"NIL!" ; return end
@@ -601,7 +618,7 @@ editor.edit_actions = { -- actions binding for text edition
 	[12] = function() fullredisplay() end, -- ^L
 	[13] = e.nl,    -- ^M (insert newline)
 	[14] = e.godown,  -- ^N
-	[15] = e.openfile,  -- ^O
+--~ 	[15] = e.openfile,  -- ^O
 	[16] = e.goup,    -- ^P
 	[17] = function() editor.quit = true end, -- ^Q
 	[18] = e.searchagain,  -- ^R
@@ -626,12 +643,15 @@ editor.edit_actions = { -- actions binding for text edition
 }--edit_actions
 
 editor.ctrlx_actions = {
-	[7] = e.nop,    -- ^G (do nothing - cancel ^X prefix)
-	[24] = e.exch_mark,  -- ^X^X
+	[2] = e.newbuffer,    -- ^X^B
+	[6] = e.findfile,    -- ^X^F
+	[7] = e.nop,         -- ^G (do nothing - cancel ^X prefix)
+	[14] = e.nextbuffer,  -- ^X^N
+	[24] = e.exch_mark,   -- ^X^X
 }--ctrlx_actions
 
 editor.esc_actions = {
-	[7] = e.nop,     -- esc^G (do nothing - cancel ^X prefix)
+	[7] = e.nop,     -- esc^G (do nothing - cancel ESC prefix)
 	[60] = e.gobot,  -- esc <
 	[62] = e.goeot,  -- esc >
 }--esc_actions
@@ -640,12 +660,13 @@ editor.esc_actions = {
 function editor_loop()
 	tl = he.fgetlines'zztest' -- [testfile. no file open for the moment]
 	style.normal()
-	buf = bufnew(tl)
-	buf.actions = editor.edit_actions
+	e.newbuffer(tl)
+--~ 	buf = bufnew(tl)
+--~ 	buf.actions = editor.edit_actions
 	--
 --~ 	buf.si, buf.sj = 6, 3
 	--
-	fullredisplay()
+--~ 	fullredisplay()
 	while not editor.quit do
 		local k = editor.nextk()
 --~ 		if k == 17 then break end -- ^Q quits
