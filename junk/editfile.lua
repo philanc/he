@@ -394,33 +394,43 @@ end
 ------------------------------------------------------------------------
 -- editor actions
 
-local function anop()
+editor.actions = {}
+local e = editor.actions
+
+function e.nop()
 	-- do nothing. cancel selection if any
 	buf.si, buf.sj = nil, nil
 	buf.chgd = true
 end 
 
-local function aright()
+e.gohome = curhome
+e.goend = curend
+e.goup = curup
+e.godown = curdown
+e.gobot = curbot
+e.goeot = cureot
+
+function e.goright()
 	return curright() or curdown() and curhome()
 end
 	
-local function aleft()
+function e.goleft()
 	-- adjust eol (cj may be > eol when moving up/down)
 	if ateol() then curend() end 
 	return curleft() or (curup() and curend())
 end
 
-local function apgdn() for i = 1, buf.box.l - 2 do curdown() end end
-local function apgup() for i = 1, buf.box.l - 2 do curup() end end
+function e.pgdn() for i = 1, buf.box.l - 2 do curdown() end end
+function e.pgup() for i = 1, buf.box.l - 2 do curup() end end
 
-local function anl()
+function e.nl()
 	local l, cj = getline()
 	insline(l:sub(1, cj)); curdown()
 	setline(l:sub(cj + 1)); curhome()
 	return true
 end
 
-local function adel()
+function e.del()
 	local l, cj = getline()
 	if ateot() then return false end
 	if ateol() then
@@ -431,17 +441,17 @@ local function adel()
 	return true
 end
 
-local function abksp()
-	return aleft() and adel()
+function e.bksp()
+	return e.goleft() and e.del()
 end
 
-local function ainsch(k)
+function e.insch(k)
 	local l, cj = getline()
 	setline(l:sub(1, cj) .. char(k) .. l:sub(cj+1))
 	curright()
 end
 
-local function aopenfile()
+function e.openfile()
 	local fn = readstr("open file: ")
 	if not fn then msg""; return end
 	local ll, errmsg = readfile(fn)
@@ -452,7 +462,7 @@ local function aopenfile()
 	fullredisplay()
 end
 
-local function actrlx()
+function e.ctrlx()
 	local k = editor.nextk()
 	local bname = '^X-' .. term.keyname(k)
 	msg(bname)
@@ -464,7 +474,7 @@ local function actrlx()
 	end
 end--actrlx
 
-local function asearchagain()
+function e.searchagain()
 	repeat
 		local l, cj = getline()
 		local j = l:find(editor.pat, cj+2)
@@ -475,32 +485,31 @@ local function asearchagain()
 		end
 	until not curdown()
 	msg("not found")
-	popcur()
 end
 
-local function asearch()
+function e.search()
 	editor.pat = readstr("Search: ")
-	return asearchagain()
+	return e.searchagain()
 end
 
-local function amark()
+function e.mark()
 	buf.si, buf.sj = buf.ci, buf.cj
 	msg("Mark set.")
 	buf.chgd = true
 end
 
-local function exch_mark()
+function e.exch_mark()
 	if buf.si then
 		buf.si, buf.ci = buf.ci, buf.si
 		buf.sj, buf.cj = buf.cj, buf.sj
 	end
 end
 
-local function wipe()
+function e.wipe()
 	if not buf.si then msg("No selection."); return end
 	editor.kll = {}
 	-- make sure cursor is at beg of selection
-	if markbeforecur() then exch_mark() end 
+	if markbeforecur() then e.exch_mark() end 
 	local ci, cj = getcur()
 	local si, sj = getsel()
 	local l1, l2 = getline(), getline(si)
@@ -523,17 +532,17 @@ local function wipe()
 	buf.chgd = true
 end--wipe
 
-local function kill() 
+function e.kill() 
 	-- wipe from cursor to end of line
 	-- del nl but do not modify the kill buffer if at eol
-	if ateol() then return adel() end
+	if ateol() then return e.del() end
 	local l, cj = getline()
 	editor.kll = { l:sub(cj+1) }
 	return setline(l:sub(1, cj))
 end--kill
 	
 
-local function yank()
+function e.yank()
 	if not editor.kll or #editor.kll == 0 then 
 		msg("nothing to yank!"); return end
 	local l = getline()
@@ -547,14 +556,14 @@ local function yank()
 	local kln = #editor.kll
 	setline(l1 .. editor.kll[1])
 	for i = 2, kln-1  do
-		curend(); anl(); setline(editor.kll[i])
+		curend(); e.nl(); setline(editor.kll[i])
 	end
-	curend(); anl(); setline(editor.kll[kln] .. l2)
+	curend(); e.nl(); setline(editor.kll[kln] .. l2)
 	ci, cj = getcur(); setcur(ci, #editor.kll[kln])
 	buf.chgd = true
 end--yank
 
-local function aesc()
+function e.esc()
 	local k = editor.nextk()
 	local bname = 'ESC-' .. term.keyname(k)
 	msg(bname)
@@ -566,7 +575,7 @@ local function aesc()
 	end
 end--aesc
 
-local function atest()
+function e.test()
 --~ 	s = readstr("enter a string: ")
 --~ 	if not s then msg"NIL!" ; return end
 --~ 	msg("the string is: '"..s.."'")
@@ -580,51 +589,51 @@ end--atest
 -- bindings
 
 editor.edit_actions = { -- actions binding for text edition
-	[0] = amark,   -- ^@
-	[1] = curhome,   -- ^A
-	[2] = aleft,   -- ^B
-	[4] = adel,    -- ^D
-	[5] = curend,    -- ^E
-	[6] = aright,  -- ^F
-	[7] = anop,    -- ^G (do nothing)
-	[8] = abksp,   -- ^H
-	[11] = kill,   -- ^k
+	[0] = e.mark,   -- ^@
+	[1] = e.gohome,   -- ^A
+	[2] = e.goleft,   -- ^B
+	[4] = e.del,    -- ^D
+	[5] = e.goend,    -- ^E
+	[6] = e.goright,  -- ^F
+	[7] = e.nop,    -- ^G (do nothing)
+	[8] = e.bksp,   -- ^H
+	[11] = e.kill,   -- ^k
 	[12] = function() fullredisplay() end, -- ^L
-	[13] = anl,    -- ^M (insert newline)
-	[14] = curdown,  -- ^N
-	[15] = aopenfile,  -- ^O
-	[16] = curup,    -- ^P
+	[13] = e.nl,    -- ^M (insert newline)
+	[14] = e.godown,  -- ^N
+	[15] = e.openfile,  -- ^O
+	[16] = e.goup,    -- ^P
 	[17] = function() editor.quit = true end, -- ^Q
-	[18] = asearchagain,  -- ^R
-	[19] = asearch,  -- ^S
-	[20] = atest,  -- ^T
-	[23] = wipe,   -- ^W
-	[24] = actrlx, -- ^X
-	[25] = yank,   -- ^Y
-	[27] = aesc,   -- ESC
+	[18] = e.searchagain,  -- ^R
+	[19] = e.search,  -- ^S
+	[20] = e.test,  -- ^T
+	[23] = e.wipe,   -- ^W
+	[24] = e.ctrlx, -- ^X
+	[25] = e.yank,   -- ^Y
+	[27] = e.esc,   -- ESC
 	--
-	[keys.kpgup]  = apgup,
-	[keys.kpgdn]  = apgdn,
-	[keys.khome]  = curhome,
-	[keys.kend]   = curend,
-	[keys.kdel]   = adel, 
-	[keys.del]    = abksp, 
-	[keys.kright] = aright,
-	[keys.kleft]  = aleft,
-	[keys.kup]    = curup,
-	[keys.kdown]  = curdown,
+	[keys.kpgup]  = e.pgup,
+	[keys.kpgdn]  = e.pgdn,
+	[keys.khome]  = e.gohome,
+	[keys.kend]   = e.goend,
+	[keys.kdel]   = e.del, 
+	[keys.del]    = e.bksp, 
+	[keys.kright] = e.goright,
+	[keys.kleft]  = e.goleft,
+	[keys.kup]    = e.goup,
+	[keys.kdown]  = e.godown,
 
 }--edit_actions
 
 editor.ctrlx_actions = {
-	[7] = anop,    -- ^G (do nothing - cancel ^X prefix)
-	[24] = exch_mark,  -- ^X^X
+	[7] = e.nop,    -- ^G (do nothing - cancel ^X prefix)
+	[24] = e.exch_mark,  -- ^X^X
 }--ctrlx_actions
 
 editor.esc_actions = {
-	[7] = anop,     -- esc^G (do nothing - cancel ^X prefix)
-	[60] = curbot,  -- esc <
-	[62] = cureot,  -- esc >
+	[7] = e.nop,     -- esc^G (do nothing - cancel ^X prefix)
+	[60] = e.gobot,  -- esc <
+	[62] = e.goeot,  -- esc >
 }--esc_actions
 
 
@@ -647,7 +656,7 @@ function editor_loop()
 		elseif (k >= 32 and k < 127) 
 			or (k >= 160 and k < 256) 
 			or (k == 9) then
-			ainsch(k)
+			e.insch(k)
 		else
 			msg(term.keyname(k) .. " not bound")
 		end
