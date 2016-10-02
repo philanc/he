@@ -181,6 +181,7 @@ local function statusline()
 	if buf.si then s = s .. strf("[%d:%d] ", buf.si, buf.sj) end
 	s = s .. strf("li=%d ", buf.li)
 	s = s .. strf("buf=%d ", editor.bufindex)
+	s = s .. strf("fn=%s ", buf.filename or "")
 	return s
 end--statusline
 
@@ -564,10 +565,12 @@ function e.esc()
 	end
 end--aesc
 
-function e.newbuffer(ll)
+function e.newbuffer(ll, fname)
+	fname = fname or "" -- default is no filename
 	ll = ll or { "" } -- default is a buffer with one empty line
 	local b = bufnew(ll) 
 	b.actions = editor.edit_actions 
+	b.filename = fname
 	local bl = editor.buflist
 	bl[#bl+1] = b
 	editor.bufindex = #bl
@@ -581,6 +584,7 @@ function e.findfile()
 	local ll, errmsg = readfile(fn)
 	if not ll then msg(errmsg); return end
 	e.newbuffer(ll)
+	buf.filename = fn
 --~ 	fullredisplay()
 end--findfile
 
@@ -660,13 +664,8 @@ editor.esc_actions = {
 function editor_loop()
 	tl = he.fgetlines'zztest' -- [testfile. no file open for the moment]
 	style.normal()
-	e.newbuffer(tl)
---~ 	buf = bufnew(tl)
---~ 	buf.actions = editor.edit_actions
-	--
---~ 	buf.si, buf.sj = 6, 3
-	--
---~ 	fullredisplay()
+	e.newbuffer(tl, 'zztest'); 
+
 	while not editor.quit do
 		local k = editor.nextk()
 --~ 		if k == 17 then break end -- ^Q quits
