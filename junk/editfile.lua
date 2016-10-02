@@ -662,8 +662,9 @@ editor.esc_actions = {
 
 
 function editor_loop()
-	tl = he.fgetlines'zztest' -- [testfile. no file open for the moment]
 	style.normal()
+
+	tl = he.fgetlines'zztest' -- [TMP!! load default testfile]
 	e.newbuffer(tl, 'zztest'); 
 
 	while not editor.quit do
