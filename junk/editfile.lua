@@ -3,8 +3,8 @@
 -- @@@@ cursor and display bug when wipe/yank many lines (more than fit in scr)
 ------------------------------------------------------------------------
 
-local he = require"he"
-he.interactive()
+--~ local he = require"he"
+--~ he.interactive()
 --~ local ln = require"linenoise"
 local term = require "term"
 
@@ -29,6 +29,7 @@ local col, keys = term.colors, term.keys
 local flush = io.flush
 
 local function readfile(fn)
+	-- read file with filename 'fn' as a list of lines
 	fh, errm = io.open(fn)
 	if not fh then return nil, errm end
 	local ll = {}
@@ -177,8 +178,8 @@ end --readstr
 local buf = {}
 
 local function statusline()
-	local s = strf("[%d:%d] ", buf.ci, buf.cj)
-	if buf.si then s = s .. strf("[%d:%d] ", buf.si, buf.sj) end
+	local s = strf("cur=%d,%d ", buf.ci, buf.cj)
+	if buf.si then s = s .. strf("sel=%d,%d ", buf.si, buf.sj) end
 	s = s .. strf("li=%d ", buf.li)
 	s = s .. strf("buf=%d ", editor.bufindex)
 	s = s .. strf("fn=%s ", buf.filename or "")
@@ -404,6 +405,7 @@ function e.nop()
 	buf.chgd = true
 end 
 
+e.redisplay = fullredisplay
 e.gohome = curhome
 e.goend = curend
 e.goup = curup
@@ -467,7 +469,7 @@ end--actrlx
 function e.searchagain()
 	repeat
 		local l, cj = getline()
-		local j = l:find(editor.pat, cj+2)
+		local j = l:find(editor.pat, cj+2, true) --plain text search
 		if j then 
 			setcurj(j-1)
 			msg("found!")
@@ -554,7 +556,7 @@ function e.yank()
 end--yank
 
 function e.exit()
-	-- should propose to save modified files here
+	-- should propose to save modified files
 	editor.quit = true
 end
 
@@ -630,28 +632,27 @@ end--atest
 -- bindings
 
 editor.edit_actions = { -- actions binding for text edition
-	[0] = e.mark,   -- ^@
-	[1] = e.gohome,   -- ^A
-	[2] = e.goleft,   -- ^B
-	[4] = e.del,    -- ^D
-	[5] = e.goend,    -- ^E
-	[6] = e.goright,  -- ^F
-	[7] = e.nop,    -- ^G (do nothing)
-	[8] = e.bksp,   -- ^H
-	[11] = e.kill,   -- ^k
-	[12] = function() fullredisplay() end, -- ^L
-	[13] = e.nl,    -- ^M (insert newline)
-	[14] = e.godown,  -- ^N
---~ 	[15] = e.openfile,  -- ^O
-	[16] = e.goup,    -- ^P
-	[17] = function() editor.quit = true end, -- ^Q
+	[0] = e.mark,          -- ^@
+	[1] = e.gohome,        -- ^A
+	[2] = e.goleft,        -- ^B
+	[4] = e.del,           -- ^D
+	[5] = e.goend,         -- ^E
+	[6] = e.goright,       -- ^F
+	[7] = e.nop,           -- ^G (do nothing)
+	[8] = e.bksp,          -- ^H
+	[11] = e.kill,         -- ^k
+	[12] = e.redisplay,    -- ^L
+	[13] = e.nl,           -- ^M (insert newline)
+	[14] = e.godown,       -- ^N
+	[16] = e.goup,         -- ^P
+	[17] = e.exit,         -- ^Q
 	[18] = e.searchagain,  -- ^R
-	[19] = e.search,  -- ^S
-	[20] = e.test,  -- ^T
-	[23] = e.wipe,   -- ^W
-	[24] = e.ctrlx, -- ^X
-	[25] = e.yank,   -- ^Y
-	[27] = e.esc,   -- ESC
+	[19] = e.search,       -- ^S
+	[20] = e.test,         -- ^T
+	[23] = e.wipe,         -- ^W
+	[24] = e.ctrlx,        -- ^X
+	[25] = e.yank,         -- ^Y
+	[27] = e.esc,          -- ESC
 	--
 	[keys.kpgup]  = e.pgup,
 	[keys.kpgdn]  = e.pgdn,
@@ -687,7 +688,7 @@ editor.esc_actions = {
 function editor_loop()
 	style.normal()
 
-	tl = he.fgetlines'zztest' -- [TMP!! load default testfile]
+	tl = readfile'zztest' -- [TMP!! load default testfile]
 	e.newbuffer(tl, 'zztest'); 
 
 	while not editor.quit do
