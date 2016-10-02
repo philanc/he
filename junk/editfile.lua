@@ -553,6 +553,11 @@ function e.yank()
 	buf.chgd = true
 end--yank
 
+function e.exit()
+	-- should propose to save modified files here
+	editor.quit = true
+end
+
 function e.esc()
 	local k = editor.nextk()
 	local bname = 'ESC-' .. term.keyname(k)
@@ -587,6 +592,21 @@ function e.findfile()
 	buf.filename = fn
 --~ 	fullredisplay()
 end--findfile
+
+function e.writefile(fname)
+	fname = fname or readstr("Write to file: ")
+	if not fname then msg("Aborted."); return end
+	fh, errmsg = io.open(fname, "w")
+	if not fh then msg(errmsg); return end
+	for i = 1, #buf.ll do fh:write(buf.ll[i], "\n") end
+	fh:close()
+	buf.filename = fname
+	msg(fname .. " saved.")
+end--writefile
+
+function e.savefile()
+	e.writefile(buf.filename)
+end--savefile
 
 function e.nextbuffer()
 	local bln = #editor.buflist
@@ -648,9 +668,12 @@ editor.edit_actions = { -- actions binding for text edition
 
 editor.ctrlx_actions = {
 	[2] = e.newbuffer,    -- ^X^B
-	[6] = e.findfile,    -- ^X^F
-	[7] = e.nop,         -- ^G (do nothing - cancel ^X prefix)
+	[3] = e.exit,         -- ^X^C
+	[6] = e.findfile,     -- ^X^F
+	[7] = e.nop,          -- ^G (do nothing - cancel ^X prefix)
 	[14] = e.nextbuffer,  -- ^X^N
+	[19] = e.savefile,    -- ^X^S
+	[23] = e.writefile,   -- ^X^W
 	[24] = e.exch_mark,   -- ^X^X
 }--ctrlx_actions
 
