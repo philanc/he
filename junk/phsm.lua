@@ -16,49 +16,87 @@ https://support.mozilla.org/en-US/kb/how-stop-firefox-making-automatic-connectio
 local he = require 'he'
 local hefs = require 'hefs'
 local heserial = require 'heserial'
+local msock = require "minisock"
 
 local list, strf, printf = he.list, string.format, he.printf
+local yield = coroutine.yield
 local ssplit = he.split
 local startswith, endswith = he.startswith, he.endswith
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
-
--- minimal socket (only the core dll + bind and connect)
--- try 'socket' first (used by current slua for win)
-local socketfound,  socket = pcall(require,  'socket')
--- if not found, try standard name for so/dll
-if not socketfound then 
-	socketfound,  socket = pcall(require,  'socket.core') 
-end
-
-function socket.connect(address, port, laddress, lport)
-    local sock, err = socket.tcp()
-    if not sock then return nil, err end
-    if laddress then
-        local res, err = sock:bind(laddress, lport, -1)
-        if not res then return nil, err end
-    end
-    local res, err = sock:connect(address, port)
-    if not res then return nil, err end
-    return sock
-end
-
-function socket.bind(host, port, backlog)
-    local sock, err = socket.tcp()
-    if not sock then return nil, err end
-    sock:setoption("reuseaddr", true)
-    local res, err = sock:bind(host, port)
-    if not res then return nil, err end
-    res, err = sock:listen(backlog)
-    if not res then return nil, err end
-    return sock
-end
 
 local function log(...)
 	print(he.isodate():sub(10), ...)
 end
 
 
+
+-- msock additional functions
+
+function msock.getserverinfo(fd)
+	local rawaddr, msg = msock.getsockname(fd)
+	if not rawaddr then return nil, msg end
+	return msock.getnameinfo(rawaddr)
+end
+
+function msock.getclientinfo(fd)
+	local rawaddr, msg = msock.getpeername(fd)
+	if not rawaddr then return nil, msg end
+	return msock.getnameinfo(rawaddr)
+end
+
+function msock.bufreader(fd)
+	-- buffered read iterator over fd
+	-- return a "bufread()" function 
+	--    bufread()      reads a line
+	--    bufread(n)     reads n bytes
+	local buf, bi = "", 1
+	local bt, nr = {}, 0
+	return (function(n)
+		if not n then -- read a line
+			while true do
+				local i, j = buf:find("\r?\n", bi)
+				if i then -- NL found. return the line
+					local l = buf:sub(bi, i-1)
+--~ 					print("LL", l, #l, bi, i, j)
+					bi = j + 1
+					return l
+				else -- NL not found. read more bytes into buf
+					local b, msg = msock.read(fd)
+					print("READ", b and #b)
+					if not b then return nil, msg end
+					if #b == 0 then return nil, "EOF" end
+					buf = buf:sub(bi) .. b
+				end--if	
+			end--while reading a line
+		else -- read n bytes
+			bt = { buf:sub(bi) }
+			nr = #buf
+			print('N, NR', n, nr)
+			while true do
+				if n <= nr then -- enough bytes in bt
+					--FIXME: eat more than n bytes
+					-- ok for http but not general purpose...
+					return table.concat(bt)
+				else -- not enough, read more
+					local b, msg = msock.read(fd)
+					if not b then return nil, msg end
+					if #b == 0 then return nil, "EOF" end
+					nr = nr + #b
+					table.insert(bt, b)
+				end
+			end--while reading n bytes
+		end--if
+	end)
+end--bufreader
+
+
+
 ------------------------------------------------------------
+-- HTTP SERVER 
+------------------------------------------------------------
+
+
+
 -- phs, the root server object
 
 phs = {
@@ -68,7 +106,7 @@ phs = {
 	bind_address = 'localhost', -- for local access only 
 	wwwroot = '.',
 	rootdefault = '/index.html',
-	version = 'phs.01',
+	version = 'phs.03',
 	-- state
 	must_exit = false,
 	must_reload = false,
@@ -76,30 +114,62 @@ phs = {
 	log = log,
 }
 
+-- the server main loop
+	
+function phs.serve()
+	-- server main loop:
+	-- 	wait for a client
+	--	call serve_client() to process client request
+	--	rinse, repeat
+	local client, msg
+	local server = assert(msock.bind(phs.bind_address, phs.port))
+	printf("phs: bound to %s %d", msock.getserverinfo(server))
+	while true do
+		if phs.must_exit or phs.must_reload then 
+			if client then msock.close(client); client = nil end
+			msock.close(server)
+			os.exit(phs.must_exit and 1 or 0)
+		end
+		client, msg = msock.accept(server)
+		if not client then
+			log("phs.serve(): accept() error", msg)
+		elseif phs.debug_mode then 
+--~ 			log("serving client", client)
+			phs.serve_client(client) -- serve and close the connection
+--~ 			log("client closed.", client)
+		else
+			pcall(phs.serve_client, client)
+		end
+	end--while
+end--server()
+
 
 ------------------------------------------------------------
--- server utilities -- receive and process requests
+-- serve client utilities -- receive request, send response
 
-local function receive_headers(client)
+local function receive_headers(bufread)
 -- process headers from a connection (borrowed from orbiter/luasocket)
--- return headers table {headername=headervalue, ...}
+-- return headers table {headername=headervalue, ...} and remaining
+-- unread content of the read buffer if any
 -- note that the variables names are uppercased and have '-' replaced 
 -- with '_' to make them WSAPI compatible (e.g. HTTP_CONTENT_LENGTH)
-	local line, name, value
+	local line, name, value, err
 	local headers = {}
 	-- get first line
-	line = assert(client:receive(), "receiving header 1st line")
+	line = assert(bufread(), "receiving header 1st line")
 	while line ~= "" do  -- headers go until a blank line is found
+		print('=', line)
 		-- get field-name and value
 		name, value = line:match "^(.-):%s*(.*)"
 		assert(name and value, "malformed reponse headers")
 		name = 'HTTP_'..name:upper():gsub('%-','_')
 		-- get next line (value may be folded)
-		line = assert(client:receive(), "receiving header line") 
+		line = bufread()
+		if not line then error(err .. " (receiving header line)") end
 		-- unfold any folded values
-		while line:find("^%s") do
+		while line:find("^[ \t]") do
 			value = value .. line
-			line = assert(client:receive(),  "receiving header continuation line")
+			line = assert(bufread(), "receiving header continuation line")
 		end
 		-- save pair in table, concat values for existing names
 		if headers[name] then 
@@ -112,43 +182,106 @@ local function receive_headers(client)
 end--receive_headers()
 
 
-phs.mimetypes = {
-	["htm"] = "text/html",
-	["html"] = "text/html",
-	["css"] = "text/css",
-	["txt"] = "text/plain",
-	["gif"] = "image/gif",
-	["png"] = "image/png",
-	["jpg"] = "image/jpeg",
-	["jpeg"] = "image/jpeg",
-	["gif"] = "image/gif",
-	["pdf"] = "application/pdf",
-	["json"] = "text/plain",
-	["lua"] = "text/plain",
-	["i"] = "text/plain",
-	[""] = "text/plain",
-	-- for all other extensions, default is "application/octet-stream"
-}	
+local status_codes = {
+	[200] = "200 Ok",
+	[301] = "301 Moved Permanently",
+	[302] = "302 Found",
+	[303] = "303 See Other",
+	[304] = "304 Not Modified",
+	[307] = "307 Temporary Redirect",
+	[400] = "400 Bad Request",
+	[401] = "401 Unauthorized",
+	[403] = "403 Forbidden",
+	[404] = "404 Not Found",
+	[405] = "405 Method Not Allowed",
+	[410] = "410 Gone",
+	[500] = "500 Internal Server Error",
+	[501] = "501 Not Implemented",
+}
 
-function phs.guess_mimetype(fpath)
-	local ext = he.fileext(fpath)
-	ext = ext:lower()
-	local mimetype = phs.mimetypes[ext] or "application/octet-stream"
-	return mimetype
+local function get_status(code)
+	return status_codes[code] or tostring(code)
 end
 
-function phs.serve_file(path) 
-	-- serve static files
-	local fpath = phs.wwwroot .. '/' .. path
-	if hefs.fexists(fpath) and hefs.isfile(fpath) then
-		local mimetype = phs.guess_mimetype(fpath)
-		local content = he.fget(fpath)
-		return phs.send_content(content, mimetype)
-	else
-		return phs.send_notfound(path)
+local function get_statusline(status)
+	if type(status) == "number" then status = get_status(status) end
+	return strf("HTTP/1.1 %s\r\nServer: %s", status, phs.version)
+end
+
+function phs.serve_client(client)
+	-- process a client request:
+	--    get a request from the client
+	--    find a suitable handler in phs.request_dispatcher
+	--    call the handler which returns a response
+	--    send the response to the client
+	--    close the client connection
+	--    return to the server main loop
+	--
+	local vars = {} -- request variables (will be passed to the handler)
+	vars.client_ip, vars.client_port = msock.getclientinfo(client)
+	log("serve client", vars.client_ip, vars.client_port)
+	-- get request first line
+	-- beware firefox "speculative connection" when hovering links!
+	--     => client will open connections and not send any request... 
+	local bufread = msock.bufreader(client) -- create the buffered read func.
+	local req, err = bufread()
+	if not req then -- assume speculative connection (or other client issue)
+		msock.close(client)
+		return
 	end
-end
+	local op, path = string.match(req, '(%a+)%s+(%S+)%s+(%S+)')
+	if not op then 
+		phs.send_badrequest(client, req) --FIX
+		msock.close(client)
+		return
+	end
+	op = op:upper()
+	vars.op = op
+	vars.path = path
+	log(op, path)
+	-- get request headers and content if any
+	local headers, buf = receive_headers(bufread)
+	he.update(vars, headers)
+	if op == 'POST' then 
+		local size = tonumber(headers.HTTP_CONTENT_LENGTH)
+		vars.content = assert(bufread(size))
+		print("POST", size, #vars.content)
+	end--if post
+	--
+	-- now dispach the request to the right handler
+	-- 1st name in path is the name of the handler
+	-- the handler is called with vars and the rest of path
+	-- eg. url "/a/b/c" will be handled by calling handler 'a':
+	--      phs.ht["a"](vars, "b/c")
+	-- if the handler is not found, phs.ht.default() is used
+	-- (remember path starts with a '/')
+	local pt = ssplit(path, '/', 2)
+	local hname = pt[2]
+	path = pt[3] or ""
+	local handler = phs.ht[hname] or phs.ht.no_handler
+	local resp = handler(vars, path)
+	--
+	-- send the response to the client
+	--   check the response elements
+	--   concat the status line, the headers and the content
+	--   send it to the client
+	assert(type(resp) == "table", "send_response(): bad resp")
+	assert(resp.status, "send_response(): status not defined")
+	local statusline = get_statusline(resp.status)
+	resp.content = resp.content or ""
+	local h = list.join(resp.headers, "\r\n")
+	local data = statusline .. "\r\n".. h .. "\r\n\r\n" .. resp.content
+	assert(msock.write(client, data))	
+	msock.close(client)
+	return
+end--serve_client()
 
+
+------------------------------------------------------------
+-- UTILITIES FOR REQUEST HANDLERS 
+------------------------------------------------------------
+
+-- socket functions should not be directly used here and below.
 
 ------------------------------------------------------------
 -- encoded content - application/x-www-form-urlencoded
@@ -257,61 +390,13 @@ end
 
 
 ------------------------------------------------------------
--- BUILD AND SEND RESPONSES
-------------------------------------------------------------
-
-
-local status_codes = {
-	[200] = "200 Ok",
-	[301] = "301 Moved Permanently",
-	[302] = "302 Found",
-	[303] = "303 See Other",
-	[304] = "304 Not Modified",
-	[307] = "307 Temporary Redirect",
-	[400] = "400 Bad Request",
-	[401] = "401 Unauthorized",
-	[403] = "403 Forbidden",
-	[404] = "404 Not Found",
-	[405] = "405 Method Not Allowed",
-	[410] = "410 Gone",
-	[500] = "500 Internal Server Error",
-	[501] = "501 Not Implemented",
-}
-
-local function get_status(code)
-	return status_codes[code] or tostring(code)
-end
-
-local function get_statusline(status)
-	if type(status) == "number" then status = get_status(status) end
-	return strf("HTTP/1.1 %s\r\nServer: %s", status, phs.version)
-end
+-- send content
 
 
 function phs.add_header(resp, name, value)
 	resp.headers = resp.headers or {}
 	list.app(resp.headers, strf("%s: %s", name, value))
 	return resp
-end
-
-local function send_response(client, resp)
-	-- resp.status is a number or a string
-	--	eg. 200 or "200 Ok"
-	-- resp.headers is a list of headers
-	-- each header is a string (without eol at end)
-	-- 	eg. "Content-Length: 12345"
-	--
-	assert(type(resp) == "table", "send_response(): bad resp")
-	assert(resp.status, "send_response(): status not defined")
-	local statusline = get_statusline(resp.status)
-	resp.content = resp.content or ""
-	local h = list.join(resp.headers, "\r\n")
-	local data = statusline .. "\r\n".. h .. "\r\n\r\n" .. resp.content
---~ pp(statusline)
---~ pp(resp.headers)
---~ pp(#resp.content)
---~ pp'send_response:' ; pp(data)
-	assert(client:send(data))
 end
 
 function phs.send_content(content, mimetype)
@@ -358,99 +443,9 @@ function phs.send_badrequest(req)
 	return phs.send_error(400, req)
 end
 
-------------------------------------------------------------
--- SERVER AND REQUEST HANDLERS
-------------------------------------------------------------
-
--- server
-	
-function phs.serve()
-	-- server main loop:
-	-- 	wait for a client
-	--	call serve_client() to process client request
-	--	rinse, repeat
-	local server = assert(socket.bind(phs.bind_address, phs.port))
-	printf("phs: bound to %s %s", server:getsockname())
-	while true do
-		if phs.must_exit or phs.must_reload then 
-			if client then client:close() end
-			server:close()
-			os.exit(phs.must_exit and 1 or 0)
-		end
-		local client, msg = server:accept()
-		if not client then
-			log("phs.serve(): accept() error", msg)
-		elseif phs.debug_mode then 
---~ 			log("serving client", client)
-			phs.serve_client(client) -- serve and close the connection
---~ 			log("client closed.", client)
-		else
-			pcall(phs.serve_client, client)
-		end
-	end--while
-end--server()
-
-function phs.serve_client(client)
-	-- process a client request:
-	--    get a request from the client
-	--    find a suitable handler in phs.request_dispatcher
-	--    call the handler which returns a response
-	--    send the response to the client
-	--    close the client connection
-	--    return to the server main loop
-	--
-	local vars = {} -- request variables (will be passed to the handler)
-	vars.client_ip, vars.client_port = client:getpeername()
-	log("serve client", vars.client_ip, vars.client_port)
-	client:settimeout(30)
-	-- get request first line
-	-- beware firefox "speculative connection" when hovering links!
-	--     => client will open connections and not send any request... 
-	local req, err = client:receive()
-	if not req then -- assume speculative connection (or other client issue)
-		client:close()
-		return
-	end
-	local op, path = string.match(req, '(%a+)%s+(%S+)%s+(%S+)')
-	if not op then 
-		send_badhttprequest(client, req) --FIX
-		client:close()
-		return
-	end
-	op = op:upper()
-	vars.op = op
-	vars.path = path
-	log(op, path)
-	-- get request headers and content if any
-	local headers = receive_headers(client)
-	he.update(vars, headers)
-	if op == 'POST' then 
-		local size = tonumber(headers.HTTP_CONTENT_LENGTH)
-		vars.content = assert(client:receive(size))
-	end--if post
-	--
-	-- now dispach the request to the right handler
-	-- 1st name in path is the name of the handler
-	-- the handler is called with vars and the rest of path
-	-- eg. url "/a/b/c" will be handled by calling handler 'a':
-	--      phs.ht["a"](vars, "b/c")
-	-- if the handler is not found, phs.ht.default() is used
-	-- (remember path starts with a '/')
-	local pt = ssplit(path, '/', 2)
-	local hname = pt[2]
-	path = pt[3] or ""
-	local handler = phs.ht[hname] or phs.ht.no_handler
-	local resp = handler(vars, path)
-	send_response(client, resp)
-	client:close()
-	return
-end--serve_client()
-
-phs.ht = {}  -- the request handler table
 
 ------------------------------------------------------------
--- utilities for request handlers 
-
+-- read and write to local files
 
 function phs.fget(fname)
 	-- assume key is a non-rooted path (eg. "a/b/c" -no leading /)
@@ -471,8 +466,54 @@ function phs.fput(fname, content)
 end
 
 ------------------------------------------------------------
--- request handlers 
---
+-- mime types, serve file
+
+phs.mimetypes = {
+	["htm"] = "text/html",
+	["html"] = "text/html",
+	["css"] = "text/css",
+	["txt"] = "text/plain",
+	["gif"] = "image/gif",
+	["png"] = "image/png",
+	["jpg"] = "image/jpeg",
+	["jpeg"] = "image/jpeg",
+	["gif"] = "image/gif",
+	["pdf"] = "application/pdf",
+	["json"] = "text/plain",
+	["lua"] = "text/plain",
+	["i"] = "text/plain",
+	[""] = "text/plain",
+	-- for all other extensions, default is "application/octet-stream"
+}	
+
+function phs.guess_mimetype(fpath)
+	local ext = he.fileext(fpath)
+	ext = ext:lower()
+	local mimetype = phs.mimetypes[ext] or "application/octet-stream"
+	return mimetype
+end
+
+function phs.serve_file(path) 
+	-- serve static files
+	local fpath = phs.wwwroot .. '/' .. path
+	if hefs.fexists(fpath) and hefs.isfile(fpath) then
+		local mimetype = phs.guess_mimetype(fpath)
+		local content = he.fget(fpath)
+		return phs.send_content(content, mimetype)
+	else
+		return phs.send_notfound(path)
+	end
+end
+
+
+
+------------------------------------------------------------
+-- REQUEST HANDLERS 
+------------------------------------------------------------
+
+
+phs.ht = {}  -- the request handler table
+
 -- the handler signature must be :  
 --      h(vars, path) => resp = {status=n, headers={...}, content}
 -- correctly formatted reponses are generated by phs utility functions
