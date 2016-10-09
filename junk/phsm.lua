@@ -74,7 +74,7 @@ function msock.bufreader(fd)
 			print('N, NR', n, nr)
 			while true do
 				if n <= nr then -- enough bytes in bt
-					--FIXME: eat more than n bytes
+					--FIXME: eats more than n bytes
 					-- ok for http but not general purpose...
 					return table.concat(bt)
 				else -- not enough, read more
@@ -590,6 +590,10 @@ function phs.ht.test(vars)
 	return phs.send_content(txt)
 end
 
+-- url-encoded data (from a post request) 
+--  "AA=aa&BB=bbb+bb&CC=punct%3A+%2C.%2F%21@%23"
+-- or from a url (get request)
+--  http://127.0.0.1:3090/test/qqq?AA=aa&BB=bbb+bb&CC=punct%3A+%2C.%2F!@%23
 
 
 ------------------------------------------------------------
