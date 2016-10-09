@@ -95,8 +95,6 @@ end--bufreader
 -- HTTP SERVER 
 ------------------------------------------------------------
 
-
-
 -- phs, the root server object
 
 phs = {
@@ -145,16 +143,34 @@ end--server()
 
 
 ------------------------------------------------------------
--- serve client utilities -- receive request, send response
+-- serve client utilities -- receive request, headers, send response
 
-local function receive_headers(bufread)
+local function receive_request(bufread, vars)
+	-- get request first line
+	-- beware firefox "speculative connection" when hovering links!
+	--     => client will open connections and not send any request... 
+	local req, errmsg = bufread()
+	if not req then return nil, errmsg end
+	local op, path = string.match(req, '(%a+)%s+(%S+)%s+(%S+)')
+	if not op then -- ignore silently
+		log("badrequest", req)
+		msock.close(client)
+		return nil, "bad request"
+	end
+	vars.op = op:upper()
+	vars.reqpath = path
+	vars.req = req
+	log(op, path)
+	return req
+end--receive_request
+
+local function receive_headers(bufread, vars)
 -- process headers from a connection (borrowed from orbiter/luasocket)
 -- return headers table {headername=headervalue, ...} and remaining
 -- unread content of the read buffer if any
 -- note that the variables names are uppercased and have '-' replaced 
 -- with '_' to make them WSAPI compatible (e.g. HTTP_CONTENT_LENGTH)
 	local line, name, value, err
-	local headers = {}
 	-- get first line
 	line = assert(bufread(), "receiving header 1st line")
 	while line ~= "" do  -- headers go until a blank line is found
@@ -172,15 +188,16 @@ local function receive_headers(bufread)
 			line = assert(bufread(), "receiving header continuation line")
 		end
 		-- save pair in table, concat values for existing names
-		if headers[name] then 
-			headers[name] = headers[name] .. ", " .. value
+		if vars[name] then 
+			vars[name] = vars[name] .. ", " .. value
 		else 
-			headers[name] = value 
+			vars[name] = value 
 		end
 	end
-	return headers
+	return vars
 end--receive_headers()
 
+-- send response
 
 local status_codes = {
 	[200] = "200 Ok",
@@ -208,59 +225,7 @@ local function get_statusline(status)
 	return strf("HTTP/1.1 %s\r\nServer: %s", status, phs.version)
 end
 
-function phs.serve_client(client)
-	-- process a client request:
-	--    get a request from the client
-	--    find a suitable handler in phs.request_dispatcher
-	--    call the handler which returns a response
-	--    send the response to the client
-	--    close the client connection
-	--    return to the server main loop
-	--
-	local vars = {} -- request variables (will be passed to the handler)
-	vars.client_ip, vars.client_port = msock.getclientinfo(client)
-	log("serve client", vars.client_ip, vars.client_port)
-	-- get request first line
-	-- beware firefox "speculative connection" when hovering links!
-	--     => client will open connections and not send any request... 
-	local bufread = msock.bufreader(client) -- create the buffered read func.
-	local req, err = bufread()
-	if not req then -- assume speculative connection (or other client issue)
-		msock.close(client)
-		return
-	end
-	local op, path = string.match(req, '(%a+)%s+(%S+)%s+(%S+)')
-	if not op then 
-		phs.send_badrequest(client, req) --FIX
-		msock.close(client)
-		return
-	end
-	op = op:upper()
-	vars.op = op
-	vars.path = path
-	log(op, path)
-	-- get request headers and content if any
-	local headers, buf = receive_headers(bufread)
-	he.update(vars, headers)
-	if op == 'POST' then 
-		local size = tonumber(headers.HTTP_CONTENT_LENGTH)
-		vars.content = assert(bufread(size))
-		print("POST", size, #vars.content)
-	end--if post
-	--
-	-- now dispach the request to the right handler
-	-- 1st name in path is the name of the handler
-	-- the handler is called with vars and the rest of path
-	-- eg. url "/a/b/c" will be handled by calling handler 'a':
-	--      phs.ht["a"](vars, "b/c")
-	-- if the handler is not found, phs.ht.default() is used
-	-- (remember path starts with a '/')
-	local pt = ssplit(path, '/', 2)
-	local hname = pt[2]
-	path = pt[3] or ""
-	local handler = phs.ht[hname] or phs.ht.no_handler
-	local resp = handler(vars, path)
-	--
+local function send_response(client, resp)
 	-- send the response to the client
 	--   check the response elements
 	--   concat the status line, the headers and the content
@@ -271,7 +236,56 @@ function phs.serve_client(client)
 	resp.content = resp.content or ""
 	local h = list.join(resp.headers, "\r\n")
 	local data = statusline .. "\r\n".. h .. "\r\n\r\n" .. resp.content
-	assert(msock.write(client, data))	
+	return msock.write(client, data)	
+end--send_response
+
+function phs.serve_client(client)
+	-- process a client request:
+	--    get a request from the client
+	--    find a suitable handler in phs.request_dispatcher
+	--    call the handler which returns a response
+	--    send the response to the client
+	--    close the client connection
+	--    return to the server main loop
+	--
+	local vars = {} -- request variables (will be passed to the handler)
+	-- log info about the client
+	vars.client_ip, vars.client_port = msock.getclientinfo(client)
+	log("serve client", vars.client_ip, vars.client_port)
+	-- create the buffered read function
+	local bufread = msock.bufreader(client) 
+	-- get request headers and content if any
+	local req, msg = receive_request(bufread, vars)
+	if not req then 
+		-- assume speculative connection (or other client issue)
+		return msock.close(client)
+	end	
+	vars, errmsg = receive_headers(bufread, vars)
+	if not vars then 
+		-- assume other client issue. ignore it
+		return msock.close(client) 
+	end
+	if vars.op == 'POST' then -- get content
+		local size = tonumber(vars.HTTP_CONTENT_LENGTH)
+		vars.content = bufread(size)
+		-- in case of error, vars.content will be nil (not much to do)
+	end
+	--
+	-- now dispach the request to the right handler
+	-- 1st name in path is the name of the handler
+	-- the handler is called with vars and the rest of path
+	-- eg. url "/a/b/c" will be handled by calling handler 'a':
+	--      phs.ht["a"](vars, "b/c")
+	-- if the handler is not found, phs.ht.default() is used
+	-- (remember path starts with a '/')
+	local pt = ssplit(vars.reqpath, '/', 2)
+	local hname = pt[2]
+	vars.path = pt[3] or ""
+	local handler = phs.ht[hname] or phs.ht.no_handler
+	local resp = handler(vars)
+	--
+	-- send the response to the client
+	send_response(client, resp)
 	msock.close(client)
 	return
 end--serve_client()
@@ -515,30 +529,30 @@ end
 phs.ht = {}  -- the request handler table
 
 -- the handler signature must be :  
---      h(vars, path) => resp = {status=n, headers={...}, content}
+--      h(vars) => resp = {status=n, headers={...}, content}
 -- correctly formatted reponses are generated by phs utility functions
 -- (phs.send_content, send_error, send_notfound, ...)
 
-function phs.ht.no_handler(vars, path)
+function phs.ht.no_handler(vars)
 	-- default handler, called when no handler found.
-	return phs.send_notfound("no handler for " .. vars.path)
+	return phs.send_notfound("no handler for " .. vars.reqpath)
 end
 
-function phs.ht.exit_server(vars, path)
+function phs.ht.exit_server(vars)
 	phs.must_exit = true
 	return phs.send_content("Server shutdown.")
 end
 
-function phs.ht.reload_server(vars, path)
+function phs.ht.reload_server(vars)
 	phs.must_reload = true
 	return phs.send_html('<p>Server reload. Go to <a href="/">index page</a>')
 end
 
-function phs.ht.f(vars, path) -- serve static files - url: /f/path/of/file
+function phs.ht.f(vars) -- serve static files - url: /f/path/of/file
 	return phs.serve_file(path)
 end
 
-function phs.ht.index(vars, path)
+function phs.ht.index(vars)
 	local mimetype = "text/html"
 	local content = he.fget('index.html')
 	return phs.send_content(content, mimetype)
@@ -549,7 +563,8 @@ phs.ht[""] = phs.ht.index -- default action for path = '/'
 ------------------------------------------------------------
 --test handlers: GET, POST (urlencoded and multipart)
 
-function phs.ht.test(vars, path)
+function phs.ht.test(vars)
+	local path = vars.path
 	if vars.op == "GET" then
 		print("test GET   path:", path)
 		print("params:", he.t2s{phs.parse_url(path)})
