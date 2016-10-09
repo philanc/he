@@ -1,3 +1,12 @@
+-- Copyright (c) 2016  Phil Leblanc  -- see LICENSE file
+
+------------------------------------------------------------------------
+--[[ 
+
+phs - a tiny HTTP server
+
+
+]]
 
 ------------------------------------------------------------
 -- imports and local definitions
@@ -5,8 +14,8 @@
 local he = require 'he'
 local hefs = require 'hefs'
 local heserial = require 'heserial'
---~ local msock = require "msock"
-local msock = require "msockls"
+local msock = require "msock"  -- minisocket-based msock
+--~ local msock = require "msockls"  -- Luasocket-based msock
 
 local list, strf, printf = he.list, string.format, he.printf
 local yield = coroutine.yield
@@ -17,9 +26,6 @@ local pp, ppl, ppt = he.pp, he.ppl, he.ppt
 local function log(...)
 	print(he.isodate():sub(10), ...)
 end
-
-
-
 
 ------------------------------------------------------------
 -- HTTP SERVER 
@@ -51,7 +57,7 @@ function phs.serve()
 	--	rinse, repeat
 	local client, msg
 	local server = assert(msock.bind(phs.bind_address, phs.port))
-	printf("phs: bound to %s %d", msock.getserverinfo(server))
+	log(strf("phs: bound to %s %d", msock.getserverinfo(server)))
 	while true do
 		if phs.must_exit or phs.must_reload then 
 			if client then msock.close(client); client = nil end
@@ -104,7 +110,7 @@ local function receive_headers(bufread, vars)
 	-- get first line
 	line = assert(bufread(), "receiving header 1st line")
 	while line ~= "" do  -- headers go until a blank line is found
-		print('=', line)
+--~ 		print('=', line)
 		-- get field-name and value
 		name, value = line:match "^(.-):%s*(.*)"
 		assert(name and value, "malformed reponse headers")
@@ -533,10 +539,16 @@ phs.serve()
 
 --[===[  Notes
 
---- Firefox connects to sites when hovering links... "speculative pre-connections feature". deactivate it:
+---
+
+Firefox connects to sites when hovering links... "speculative pre-connections feature". deactivate it:
    go to about:config 
    set network.http.speculative-parallel-limit to 0
 see
 https://support.mozilla.org/en-US/kb/how-stop-firefox-making-automatic-connections#w_speculative-pre-connections
+
+---
+
+
 
 ]===]
