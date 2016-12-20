@@ -109,7 +109,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he091, 160917'
+he.VERSION = 'he092, 161001'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -815,6 +815,10 @@ end
 
 function he.isodate11(t)	 -- format: 090709_1221
 	return os.date("%y%m%d_%H%M", t) 
+end
+
+function he.isodate10(t)	 -- format: 0907091221
+	return os.date("%y%m%d%H%M", t) 
 end
 
 function he.iso2time(s)
