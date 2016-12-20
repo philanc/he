@@ -95,7 +95,9 @@ content:
   basename		strip directory and suffix from a file path
   dirname       strip last component from file path
   fileext       return the extension of a file path
-  is_absolute_path  return true if a path is absolute
+  makepath      concatenate a directory name and a file name
+  wdrive        return the drive letter for a windows path
+  isabspath     return true if a path is absolute
 
   ---
   
@@ -109,7 +111,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he092, 161001'
+he.VERSION = 'he093, 161216'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -521,10 +523,15 @@ function iter.map(it, func)
 	end)
 end--map
 
-function iter.dbg(it, msg)
-	-- print a debug message (return the iterator itself, so it can be 
-	-- inserted in a chain of iterators)
+function iter.log(it, msg)
+	-- default log function. can be redefined (see test_he)
 	print("iter.dbg:", it.f, it.err, it.msg, msg)
+end
+
+function iter.dbg(it, msg)
+	-- log a debug message (return the iterator itself, so it can be 
+	-- inserted in a chain of iterators)
+	iter.log(it, msg)
 	return it
 end
 
@@ -913,8 +920,35 @@ function he.escape_sh(s)
 	return string.gsub(s, "([ %(%)%\\%[%]\"'])", "\\%1")
 end
 
+
+function he.source_line(level)
+	-- return <sourcefilename>:<current line>
+	-- level is the caller level: 
+	--    2: where source_line() is called (this is the default)
+	--    3: where the caller of source_line() is called
+	--    etc.
+	level = level or 2
+	local info = debug.getinfo(level) 
+	if not info then return "[nil]:-1" end
+	return string.format("%s:%s", info.short_src, info.currentline)
+end
+
+function he.exitf(exitcode, fmt, ...)
+	-- write a formatted message to stderr and exit the current program 
+	-- exitcode is an integer (parameter for os.exit())
+	io.stderr:write(string.format(fmt, ...), "\n")
+	os.exit(exitcode)
+end
+
+function he.checkf(val, fmt, ...)
+	-- exit with a formatted message if val is false (exit code is 1)
+	-- or return val
+	if not val then exitf(1, fmt, ...) end
+	return val
+end
+
 ------------------------------------------------------------------------
--- small windows/unix dependant definitions
+-- small windows/unix dependant definitions (filepath, tmp files)
 --
 he.pathsep = string.sub(package.config, 1, 1)  -- path separator
 he.windows = ( string.byte(he.pathsep) == 92)  -- 92 is '\' 
@@ -988,39 +1022,24 @@ function he.fileext(path)
 	return base:match("^.+%.(.*)$") or ""
 end
 
-function he.is_absolute_path(path)
+function he.makepath(dirname, name)
+	-- returns a path made with a dirname and a filename
+	-- path uses unix convention (separator is '/')
+	-- if dirname is "", name is returned
+	if dirname == "" then return name end
+	if dirname:match('/$') then return dirname .. name end
+	return dirname .. '/' .. name
+end
+
+function he.wdrive(p) 
+	-- return the drive letter for a windows path, or nil
+	return he.windows and p:match('^(%a):')
+end
+
+function he.isabspath(p)
 	-- return true if p is an absolute path
-	-- either '/something' or 'a:/something'
-	return path:match('^%a:/') or path:match('^/')
-end
-
-function he.source_line(level)
-	-- return <sourcefilename>:<current line>
-	-- level is the caller level: 
-	--    2: where source_line() is called (this is the default)
-	--    3: where the caller of source_line() is called
-	--    etc.
-	level = level or 2
-	local info = debug.getinfo(level) 
-	if not info then return "[nil]:-1" end
-	local line = string.format("%s:%s", 
-		info.short_src, info.currentline)
---~ 		hefs.fname(info.short_src), info.currentline)
-	return line
-end
-
-function he.exitf(exitcode, fmt, ...)
-	-- write a formatted message to stderr and exit the current program 
-	-- exitcode is an integer (parameter for os.exit())
-	io.stderr:write(string.format(fmt, ...), "\n")
-	os.exit(exitcode)
-end
-
-function he.checkf(val, fmt, ...)
-	-- exit with a formatted message if val is false (exit code is 1)
-	-- or return val
-	if not val then exitf(1, fmt, ...) end
-	return val
+	-- either '/something' on unix or 'a:/something' on windows
+	return p:match('^/') or (he.windows and p:match('^%a:/'))
 end
 
 ------------------------------------------------------------------------

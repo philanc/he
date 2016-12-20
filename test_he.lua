@@ -9,7 +9,7 @@ local he = require 'he'
 assert(he)
 
 -- make sure we test the correct version
-assert(he.VERSION:match("^he091,"))
+assert(he.VERSION:match("^he093,"))
 
 -- check that _G and string are not extended
 assert(not _G.he)
@@ -210,10 +210,12 @@ local odd = function(i) return i % 2 == 1 end
 local t, t1, t2, i, l, x
 local txt, fh, msg
 
-
-
 -- count, filter, take
 -- also verify that :dbg() and :check_err() do not change the result 
+
+local dbgmsg
+iter.log = function(it, msg) dbgmsg = msg end
+
 t = {}
 for i in iter.count(10,3)
 	:filter(odd)
@@ -222,6 +224,7 @@ for i in iter.count(10,3)
 	:check_err()
 	do t[#t+1] = i end
 assert(he.equal(t, {13, 19, 25}))
+assert(dbgmsg == '---dbg ok.')
 
 -- tolist
 t = list{11,22,33}
@@ -238,7 +241,7 @@ t = iter.count(10,3):filter(odd)
 	:take(3):tolist(); 
 assert(he.equal(t, list{26, 38, 50}))
 
--- flines:  uses a file => tested below
+-- iter.flines, records:  uses a file => tested below
 
 ------------------------------------------------------------------------
 -- test misc functions
@@ -328,18 +331,37 @@ assert(he.fileext("/de.f/a.b") == "b")
 assert(he.fileext("/de.f/a") == "")
 assert(he.fileext("/de.f/") == "")
 
--- is_absolute_path
-assert(he.is_absolute_path "/")
-assert(he.is_absolute_path "/abc/d")
-assert(he.is_absolute_path "f:/abc/d")
-assert(he.is_absolute_path "F:/abc/d")
-assert(not he.is_absolute_path "")
-assert(not he.is_absolute_path "abc/d")
-assert(not he.is_absolute_path "f:abc/d")
+-- isabspath
+assert(he.isabspath "/")
+assert(he.isabspath "/abc/d")
+if he.windows then
+	assert(he.isabspath "f:/abc/d")
+	assert(he.isabspath "F:/abc/d")
+else
+	assert(not he.isabspath "f:/abc/d")
+	assert(not he.isabspath "F:/abc/d")
+end
+assert(not he.isabspath "")
+assert(not he.isabspath "abc/d")
+assert(not he.isabspath "f:abc/d")
 
+-- wdrive
+if he.windows then
+	assert(he.wdrive("a:/bc/def/") == "a")
+	assert(he.wdrive("A:/bc/def/") == "A")
+	assert(he.wdrive("ab:/bc/def/") == nil)
+	assert(he.wdrive("/bc/def/") == nil)
+end
+
+-- makepath
+assert(he.makepath("ab", "cd") == "ab/cd")
+assert(he.makepath("/ab/", "cd") == "/ab/cd")
+assert(he.makepath("ab", "/cd") == "ab//cd") -- should be nil?
 
 ------------------------------------------------------------------------
 -- test file and os functions
+
+-- --[==[
 
 local test_tmpdir = he.tmpdir()
 local fn = he.ptmp('he_test_file.txt')
@@ -366,7 +388,7 @@ end -- if
 txt = [[abc def
 == oops, a comment
 gh ijkl
-mnop qr st<eof>]]
+mnop qr st<eof>]] -- do not change this text!!
 he.fput(fn, txt)
 t = {}
 fh, msg = io.open(fn)
@@ -387,7 +409,12 @@ assert(he.equal(iter.fread(fh, 5):lines():tolist(), fl))
 assert(fh:close())
 
 fh, msg = io.open(fn)
-for l in iter.fread(fh, 11):records('\n==%s+') do print('>>', #l, he.repr(l)) end
+local rl = list()
+for l in iter.fread(fh, 11):records('\n==%s+') do 
+	rl:app(#l)
+--~ 	print('>>', #l, he.repr(l)) 
+end
+assert(rl[1]==7 and rl[2]==39)
 fh:seek('set')--rewind file
 assert(fh:close())
 
@@ -402,6 +429,7 @@ fh:close()
 -- cleanup the tmp file
 assert(os.remove(fn))
 
+-- ]==]
 
 ------------------------------------------------------------------------
 --~ pp(he)
