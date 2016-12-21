@@ -12,38 +12,6 @@ local app, join = list.app, list.join
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
 local sep, resep = he.sep, he.resep
 
--- test path functions
-	-- psplit
-	assert(he.equal(hefs.psplit('ab'), {'ab'}))
-	assert(he.equal(hefs.psplit('/ab'), {'/', 'ab'}))
-	assert(he.equal(hefs.psplit('/ab/cd/'), {'/', 'ab', 'cd'}))
-	assert(join(hefs.psplit('/ab/cd'), '')=='/abcd')
-	assert(join(hefs.psplit('ab/cd'), '')=='abcd')
-	-- psplitdir, psplitext
-	assert(he.equal({hefs.psplitdir('/a/b/')}, {'/a', 'b'}))
-	assert(he.equal({hefs.psplitdir('a')}, {'', 'a'}))
-	assert(he.equal({hefs.psplitdir('/a')}, {'/', 'a'}))
-	assert(he.equal({hefs.psplitdir('/')}, {'', '/'}))
-	assert(he.equal({hefs.psplitext('a')}, {'a', ''}))
-	assert(he.equal({hefs.psplitext('a.b')}, {'a', 'b'}))
-	assert(he.equal({hefs.psplitext('a.b.c')}, {'a.b', 'c'}))
-	assert(he.equal({hefs.psplitext('a.b/c')}, {'a.b/c', ''}))
-	assert(he.equal({hefs.psplitext('a.b/c.d')}, {'a.b/c', 'd'}))
-	assert(he.equal({hefs.psplitext('.a.b/c')}, {'.a.b/c', ''}))
-	assert(he.equal({hefs.psplitext('.a')}, {'.a', ''}))
-	assert(he.equal({hefs.psplitext('.a.b')}, {'.a', 'b'}))
-	-- pabs --removed with v085
-	-- pnorm
-	assert(he.pnormw('a\\b/c')=='a\\b\\c')
-	assert(he.pnorm('\\a\\b\\c/')=='/a/b/c/')
-	-- pjoin
-	assert(hefs.pjoin{}=='')
-	assert(hefs.pjoin{'/'}=='/')
-	assert(hefs.pjoin{'/', 'a'}=='/a')
-	assert(hefs.pjoin{'a','b'}=='a/b')
-	assert(hefs.pjoin{'a/','b/'}=='a/b')
-	assert(hefs.pjoin(hefs.psplit('/ab/cd'))=='/ab/cd')
-	assert(hefs.pjoin(hefs.psplit('ab/cd'))=='ab/cd')
 	--
 --
 local test_tmpdir
@@ -61,7 +29,7 @@ for x in hefs.dir(he.tmpdir()) do b = b or x=='hxfs' end
 assert(b)
 assert(list.has(hefs.dirs(he.tmpdir()), tmp))
 
-local ph = hefs.pjoin{tmp, 'hello.txt'}
+local ph = he.makepath(tmp, 'hello.txt')
 local t = os.time()
 he.fput(ph, 'hello')
 --~ print(hefs.fmod(ph), t)

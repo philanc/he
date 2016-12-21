@@ -3,10 +3,38 @@
 
 --[[ 
 
-hefs - file system functions (path, file, directory ...) 
+hefs - file system functions (path, file, directory ...) based on lfs
 
-this module uses:  he, lfs
+pathname arguments are assumed to use Unix separators ('/')
+pathname handling functions defined in module 'he'.
 
+hefs functions:
+
+  currentdir    return current directory (with '/' separators)
+  chdir         alias for lfs.chdir
+  rmdir         alias for lfs.rmdir
+  mkdir         alias for lfs.mkdir
+  touch         alias for lfs.touch
+  dir           same as lfs.dir, but defaults to the current directory
+  
+  fmod          return last modification date for a file
+  fsize         return size of a file
+  fexists       return true if pathname exists
+  isdir         directory pathname predicate
+  isfile        file pathname predicate
+  
+  glob2re       turn a simplified "glob" pattern into a Lua re pattern
+  glob          return a function matching a simplified "glob" pattern
+  
+  findmap     	apply a function to all entries in a directory (recursively)
+  findfiles		return a list of all file entries in a directory (recursively)
+  finddirs      return a list of all directories in a directory (recursively)
+  
+  mkdirs        create a directory and required parent dirs ('mkdir -p')
+  rmdirs        remove a directory and all its content ('rm -r')
+  pushd         push a directory (same as command 'pushd')
+  popd          pop a directory (same as command 'popd')
+  
 
 ]]
 ------------------------------------------------------------------------
@@ -16,9 +44,8 @@ local lfs = require 'lfs'
 _G.lfs = nil  --  (lfs.dll (for 5.1) does not respect the 5.2 convention)
 
 local strip, rstrip, split = he.strip, he.rstrip, he.split
-local startswith = string.startswith
 local list = he.list
-local app, join = list.app, list.join
+local app = list.app
 
 ------------------------------------------------------------------------
 local hefs = {}  -- the hefs module
@@ -26,111 +53,7 @@ local hefs = {}  -- the hefs module
 he.fs = hefs
 
 ------------------------------------------------------------------------
--- pathname functions
-
--- legacy definitions
-hefs.basename = he.basename
-hefs.dirname = he.dirname
-
-
-function hefs.makepath(dirname, name, ext)
-	-- returns a path made with a dirname, a filename and an optional ext.
-	-- path uses unix convention (separator is '/')
-	-- ext is assumed to contain the dot, ie. makepath('/abc', 'file', '.txt')
-	if ext then name = name .. ext end
-	if he.endswith(dirname, '/') then
-		return dirname .. name
-	else
-		return dirname .. '/' .. name
-	end--if
-end
-
-
-local win = he.windows
-	-- this flag is usd only for path functions. 
-	-- it can be changed if needed 
-	-- (eg. working on windows paths on a linux platform)
-
---local sep = win and '\\' or '/'
---local resep = win and '%\\' or '/'  -- can be used in a re
-
-local sep = '/'
-local resep = '/'  -- can be used in a re
-
-hefs.sep, hefs.resep = sep, resep
-
-local function striprsep(p) 
-	-- remove sep at end of path
-	if p:match('^%a:/$') or p:match('^/$') then 
-		return p 
-	end
-	local rersep = '/$'  
-	return p:gsub(rersep, '') 
-end
-
-local function cleansep(p)
-	p = p:gsub( '//', '/') 
-	p = striprsep(p)
-	return p
-end
-
-local function wdrive(p)
-	if p:match('^%a:/') then return p:sub(1,2)
-	else return nil
-	end
-end
-
-function hefs.pisabs(p)
-	-- return true if p is an absolute path
-	-- either '/something' or 'a:/something'
-	return p:match('^%a:/') or p:match('^/')
-end
-
-function hefs.psplit(p) 
-	local pl = split(p, '/')
-	if pl[1] == '' then pl[1] = '/' end
-	if pl[#pl] == '' then table.remove(pl, #pl) end
-	return pl
-end
-
-function hefs.psplitdir(p)
-	-- return dir, name
-	if p == '' then return "", "" end
-	local pl = hefs.psplit(p)
-	local name = pl[#pl]
-	table.remove(pl, #pl)
-	return hefs.pjoin(pl), name
-end
-
-function hefs.psplitext(p)
-	--return basename, ext
-	p = striprsep(p)
-	local i0 = 1; local i
-	while true do
-		i = p:find('.', i0+1,  true)
-		if not i then
-			if i0 == 1 or p:find(resep, i0) then 
-				return p, ''  -- no dot or last dot not in last name
-			else break
-			end 
-		end
-		i0 = i
-	end --while
-	-- i0 index of last dot in last name
-	return p:sub(1, i0-1), p:sub(i0+1, #p)
-end
-
-function hefs.pjoin(a, b)
-	-- build a path from name components
-	-- 2 forms: pjoin(namelist) or pjoin(a, b)
-	if type(a) == 'table' then 
-		return cleansep(join(a, '/'))
-	elseif b then 
-		return cleansep(a .. '/' .. b)
-	else
-		return a
-	end
-end
+-- pathname functions  (simplified and moved to module he)
 
 ------------------------------------------------------------------------
 -- functions using lfs 
@@ -149,8 +72,13 @@ function hefs.currentdir() return he.pnorm(lfs.currentdir()) end
 function hefs.fmod(fn) return lfs.attributes(fn, 'modification') end
 function hefs.fsize(fn) return lfs.attributes(fn, 'size') end
 function hefs.fexists(fn) return not (not lfs.attributes(fn, 'size')) end
-function hefs.isdir(fn) return lfs.attributes(fn, 'mode') == 'directory' end
-function hefs.isfile(fn) return lfs.attributes(fn, 'mode') == 'file' end
+
+function hefs.isdir(fn) 
+	return (lfs.attributes(fn, 'mode') == 'directory') and fn 
+end
+function hefs.isfile(fn) 
+	return (lfs.attributes(fn, 'mode') == 'file') and fn 
+end
 
 function hefs.issymlink(fn)
 	if he.windows then return false
@@ -159,21 +87,8 @@ function hefs.issymlink(fn)
 	end
 end
 
-function hefs.fileinfo(fn)
-	-- returns a record (a table) with file info 
-	-- (fn=filepath, mod=modification date (iso fmt), siz=file size)
-	-- or nil if fn doesn't exist or is not a file
-	if not (att(fn, 'mode') == 'file')  then  return nil  end
-	return {
-		fn = fn,
-		mod = he.isodate(att(fn, 'modification')),
-		size = att(fn, 'size'),
-	}
-end
-
-
 function hefs.samefile(fna, fnb)
-	return win and (fna == fnb) or (att(fna, 'ino')  == att(fnb, 'ino'))
+	return win and (fna == fnb) or (att(fna, 'ino') == att(fnb, 'ino'))
 end
 
 function hefs.dir(p)
@@ -181,71 +96,77 @@ function hefs.dir(p)
 	return lfs.dir(p or lfs.currentdir())
 end
 
-
 function hefs.glob2re(globpat)
 -- return a lua re pattern implementing a file 'glob' pattern
 --   simplified glob pattern matching
 --   pattern 'x' matches 'x' only, not 'xy' or 'yx'
---   pattern 'x*' matches 'xabc'
---   pattern '*x' matches 'abcx'
---   pattern '*x*'  matches 'abxcde', but not 'ax' or 'xb' --??why??130324 
-	local repat = '^' .. he.escape_re(globpat) .. '$'
+--   pattern 'x*' matches 'x', 'xabc'
+--   pattern '*x' matches 'x', 'abcx'
+--   pattern '*x*'  matches 'abxc', 'ax', 'xb', 'x'
+ 	local repat = '^' .. he.escape_re(globpat) .. '$'
 	repat = string.gsub(repat, '%%%*', '.*')
 	return repat
 end
 
-function hefs.find(dp, recurse, modefilter, globpat)
-	-- finds entries in dp matching optional pattern globpat 
-	-- (globpat is a simplified glob pattern. eg *.i or 123*.z -- no '?')
-	-- modefilter is a filter function
-	--	  eg. isfile or isdir can be used here
-	-- recurses in subdirs if recurse is true (non nil)
-	-- 
-	dp  = dp or '.'
-	local repat = globpat and hefs.glob2re(globpat) or ""
-	-- (if repat is '', string.match(fn, repat) will be true)
-	if not modefilter then 
-		modefilter = function()  return true end
-	end
+function hefs.glob(pat) 
+	-- return a function that matches a string against a glob pattern, 
+	-- and returns the string in case of success
+	-- eg.  glob("x*")("xabc") --> "xabc"
+	--      glob("x*")("abcx") --> nil
+	local re = hefs.glob2re(pat)
+	return function(e) return e:match(re) and e end
+end
+
+local function idf(x) return x end -- identity function (default for findmap())
+
+function hefs.findmap(dp, func, norecurse)
+	-- iterate on all entries in directory 'dp'. Recurse into subdirectories
+	-- except if norecurse is true (default is to recurse).
+	-- for each entry 'e', if func(e) is true, its value is appended
+	-- to the returned list. if func is nil, the entry 'e' is appended.
+	-- dp defaults to the current directory
+	func = func or idf -- func defaults to identity
+	dp = dp or ""
+	local isdir = hefs.isdir
 	local pl = he.list()
-	local pn, mode
-	for fn in lfs.dir(dp) do
-		pn = (dp == '.') and fn or hefs.pjoin(dp, fn)
+	-- lfs("") iterates on root directory... (at least on windows)
+	local lfsdp = (dp == "") and "." or dp
+	for fn in lfs.dir(lfsdp) do
 		if fn == '.' or fn == '..' then --continue
 		else
-			mode = lfs.attributes(pn, 'mode')
---~			 print(mode, pn)
-			if modefilter(pn) and string.match(fn, repat)  then 
-				app(pl, pn)
-			end
-			if  recurse and mode == 'directory' then
-				pl:extend(hefs.find(pn, recurse, modefilter, globpat))
+			local pn = he.makepath(dp, fn)
+			local e = func(pn)
+			if e then app(pl, e) end
+			if isdir(pn) and not norecurse then 
+				pl:extend(hefs.findmap(pn, func)) 
 			end
 		end
-	end --for
-	table.sort(pl)
+	end--for
 	return pl
-end --find
-	
-
-function hefs.files(dp, pat)
-	-- find files in dp matching optional glob pattern pat. (no recursion.)
-	return hefs.find(dp, false, hefs.isfile, pat)
 end
 
-function hefs.dirs(dp, pat)
-	-- find dirs in dp matching optional glob pattern pat. (no recursion)
-	return hefs.find(dp, false, hefs.isdir, pat)
+function hefs.findfiles(dp, func)
+	-- same as findmap(), but iterate only on files
+	func = func or idf
+	local f = function(e) return hefs.isfile(e) and func(e) end
+	return hefs.findmap(dp, f)
 end
 
-function hefs.findfiles(dp, pat)
-	-- find files in dp and subdirs, matching optional glob pattern pat
-	return hefs.find(dp, true, hefs.isfile, pat)
+function hefs.finddirs(dp, func)
+	-- same as findmap(), but iterate only on directories
+	func = func or idf
+	local f = function(e) return hefs.isdir(e) and func(e) end
+	return hefs.findmap(dp, f)
 end
 
-function hefs.finddirs(dp, pat)
-	-- recursively find dirs in dp matching optional glob pattern pat
-	return hefs.find(dp, true, hefs.isdir, pat)
+function hefs.files(dp)
+	-- return a list of files in directory dp (don't recurse)
+	return hefs.findmap(dp, idf, true)
+end
+
+function hefs.dirs(dp)
+	-- return a list of directories in directory dp (don't recurse)
+	return hefs.findmap(dp, idf, true)
 end
 
 function hefs.mkdirs(pn)
@@ -257,32 +178,38 @@ function hefs.mkdirs(pn)
 	if hefs.fexists(pn) then
 		he.errf('hefs.mkdirs(): "%s" exists and is not a directory', pn)
 	end
-	local pnd, pnb = hefs.psplitdir(pn)
-	if  #pnd > 0 then 
-		hefs.mkdirs(pnd) 
-	end
+	local pnd = he.dirname(pn)
+	hefs.mkdirs(pnd) 
 	hefs.mkdir(pn)
 end
-
-function hefs.fpput(pathname, content)
-	-- same as he.fput(), but ensure that all directories in 'pathname' exist
-	local d, b = hefs.psplitdir(pathname)
-	hefs.mkdirs(d)
-	he.fput(pathname, content)
-end
-
 
 function hefs.rmdirs(pn)
 	-- recursive rmdir
 	-- current version doesnt process special files, links, ...
-	assert(pn, "hefs.rmdirs(): path must be specified.")
-	for i, fname in ipairs(hefs.files(pn)) do
-		os.remove(fname)
+	--
+	-- this is a dangerous function!!
+	-- on a win PC, if admin, could wipe the entire disk
+	-- if started in/with wrong arg!!!  or if bug!!!
+	-- => consider removing it.
+	-- => at least enforce that pn must be an abs path
+	--
+	assert(pn and he.isabspath(pn), 
+		"hefs.rmdirs(): path must be an absolute path.")
+	if not hefs.isdir(pn) then
+		return nil, "path does not exist or is not a directory"
 	end
-	for i, dname in ipairs(hefs.dirs(pn)) do
-		hefs.rmdirs(dname)
+	for fn in hefs.dir(pn) do
+		local fp = he.makepath(pn, fn)
+		if fn == '.' or fn == '..' then --ignore them => continue
+		elseif hefs.isfile(fp) then 
+--~ 			print("os.remove", fp)
+			os.remove(fp) 
+		elseif hefs.isdir(fp) then 
+			hefs.rmdirs(fp)
+		end
 	end
-	hefs.rmdir(pn)
+--~ 	print("hefs.rmdir", pn)
+	return hefs.rmdir(pn)
 end
 
 --
