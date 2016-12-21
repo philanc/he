@@ -1,6 +1,9 @@
 
-preload_fname = "hea0911.lua"
-modlst = {"he", "hefs", "hezen", "henacl", "hecsv", "heserial",  }
+
+preload_fname = "hea092a.lua"
+modlst = {	"he", "hefs", "hezen", "henacl", "hecsv", "heserial", 
+					"hegetopt", "heexec",
+}
 
 -----------------------------------------------------------------------
 he = require "hea090"
@@ -20,3 +23,4 @@ end
 
 table.insert(pt, sepline .. "\nhe = require 'he'\nreturn he\n")
 he.fput(preload_fname, table.concat(pt))
+
