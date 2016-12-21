@@ -74,11 +74,8 @@ local function deserialize(s)
 		local f = assert(
 			load('return ' .. s, "(heserial)", "t", e), 
 			"deserialize: string parse error")
---~ 		local f = load('return ' .. s, "(heserial)", "t", e)
---~ 		print(222, f)
 		x = f()
 	end
-	--- local x  =  chunk()
 	return x
 end--deserialize()
 
@@ -86,6 +83,7 @@ local function fput(fname, x, encode)
 	-- serialize x, write to file 'fname'. 
 	-- encode is an optional encoding function (closure).  
 	-- if provided, it is applied to the serialized data. 
+	-- (encode can be used to compress and/or encrypt the serialized data)
 	local s = serialize(x)
 	if encode then s = encode(s) end
 	he.fput(fname, s)
@@ -93,8 +91,6 @@ end--fput()
 
 local function fget(fname, decode)
 	-- read serialized data from file 'fname' and returned deserialized data.
-	-- decrypt is an optional function (closure). if provided, it is used
-	--   to decrypt the serialized data
 	-- decode is an optional decoding function (closure).  
 	-- if provided, it is applied to the serialized data. 
 	local s = he.fget(fname)
