@@ -97,6 +97,8 @@ end
 
 ------------------------------------------------------------------------
 return {
-	
+	execute2 = execute2,
+	execute3 = execute3,
+	exec = exec,
 }
 
