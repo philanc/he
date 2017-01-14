@@ -6,7 +6,7 @@
 content:
 
   equal			test equality (deep)
-  compare_any	compare values with any type 
+  cmpany		compare values with any type 
 				(useful to sort heterogeneous lists)
 
   class			a minimalist class constructor
@@ -149,22 +149,19 @@ function he.equal(a, b, checkmt)
 	end
 end
 
-function he.compare_any(x, y)
+function he.cmpany(x, y)
 	-- compare data with any type (useful to sort heterogeneous lists)
 	-- equivalent to x < y for same type data
-	-- order: nil < any number < any string < any other object
+	-- order: any number < any string < any other object
+	local r
 	local tx, ty = type(x), type(y)
-	if tx == ty then 
-		if tx == 'string' or tx == 'number' then return x < y 
-		else return true -- ignore order on tables and others
-		end
-	end
-	if x == nil  then return true end
-	if y == nil  then return  false end
-	if tx == 'number' then return true end
-	if tx == 'string' then return ty ~= 'number' end
-	if ty == 'string' then return false end
-	return true
+	if (tx == ty) and (tx == 'string' or tx == 'number') then r = x < y
+	elseif tx == 'number' then r = true
+	elseif tx == 'string' then r = (ty ~= 'number')
+	elseif ty == 'string' then r = false
+	else r = tostring(x) < tostring(y) 
+	end--if
+	return r
 end
 
 
@@ -391,10 +388,10 @@ end
 function he.sortedkeys(t, pred, ...)  
 	-- returns sorted list of keys of t
 	-- if predicate is defined, return only keys for which pred(v, ...) is true
-	-- sort works with heterogeneous keys (use compare_any) 
+	-- sort works with heterogeneous keys (use cmpany) 
 	--   in case of performance issue, simply use sorted(keys(. . .)) )
 	local kt = he.keys(t, pred, ...); 
-	table.sort(kt, he.compare_any); 
+	table.sort(kt, he.cmpany); 
 	return kt 
 end
 
