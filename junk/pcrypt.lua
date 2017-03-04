@@ -1,11 +1,14 @@
+-- pcrypt
 
-local lz = require("lz")
+--170303 added pk en(de)cryption, changed op names => v0.2
+--170302 initial implem.
 
---170303 
-local pcrypt_VERSION = "pcrypt 0.1"
+local pcrypt_VERSION = "pcrypt 0.2"
 
 ------------------------------------------------------------------------
 -- local definitions
+
+local lz = require "lz"
 
 local strf = string.format
 
@@ -51,8 +54,18 @@ local function perr(...) io.stderr:write(...); io.stderr:write("\n") end
 local bsize = 1024 * 1024  -- use 1 MB blocks
 
 
-function encrypt_stream(k, fhi, fho)
-	local n = lz.randombytes(32)
+function encrypt_stream(k, fhi, fho, pkflag)
+	-- if pkflag is true, k is the public key
+	local pk, rpk, rsk -- the public key and the random key pair
+	local nonce
+	if pkflag then
+		pk = k
+		rpk, rsk = lz.keypair()
+		nonce = rpk  -- use the random pk as the nonce
+		k = lz.key_exchange(rsk, pk) -- get the session key
+	else
+		nonce = lz.randombytes(32)
+	end
 	local ninc = 0
 	local eof = false
 	-- make sure the encrypted block is bsize bytes
@@ -61,20 +74,22 @@ function encrypt_stream(k, fhi, fho)
 		-- make sure the encrypted block is bsize bytes
 		if ninc == 0 then
 			rdlen = bsize - 64  --32 for the nonce, 32 for the MAC
-			aad = n  -- prefix the first block with the nonce
+			aad = nonce  -- prefix the first block with the nonce
 		else
 			rdlen = bsize - 32
 			aad = ""
 		end
 		block = fhi:read(rdlen)
 		eof = (#block < rdlen)
-		local cblock = lz.aead_encrypt(k, n, block, ninc, aad)
+		local cblock = lz.aead_encrypt(k, nonce, block, ninc, aad)
 		ninc = ninc + 1
 		fho:write(cblock)
 	end--while
 end--encrypt_stream()
 
-function decrypt_stream(k, fhi, fho)
+function decrypt_stream(k, fhi, fho, pkflag)
+	-- if pkflag is true, k is the secret key
+	local sk, rpk
 	local nonce, block 
 	local aadlen
 	local ninc = 0
@@ -85,6 +100,11 @@ function decrypt_stream(k, fhi, fho)
 		eof = (#block < bsize)
 		if ninc == 0 then --first block
 			nonce = block:sub(1, 32)
+			if pkflag then 
+				rpk = nonce -- the nonce is also the random public key
+				sk = k
+				k = lz.key_exchange(sk, rpk) -- get the session key
+			end
 			aadlen = 32
 		else
 			aadlen = 0
@@ -119,7 +139,7 @@ local function get_key32(kfn, defaultext)
 	return key
 end--get_key32()
 
-function encrypt_file(k, fni, fno)
+function encrypt_file(k, fni, fno, pkflag)
 	local fhi, fho --file handles
 	local r, msg = nil, nil
 	if fni == '-' then 
@@ -140,7 +160,7 @@ function encrypt_file(k, fni, fno)
 			goto close
 		end
 	end
-	encrypt_stream(k, fhi, fho)
+	encrypt_stream(k, fhi, fho, pkflag)
 	r = true
 	::close::
 	if fhi and fhi ~= io.stdin then assert(fhi:close()) end
@@ -148,7 +168,7 @@ function encrypt_file(k, fni, fno)
 	return r, msg
 end --encrypt_file()
 
-function decrypt_file(k, fni, fno)
+function decrypt_file(k, fni, fno, pkflag)
 	local fhi, fho --file handles
 	local r, msg
 	if fni == '-' then 
@@ -166,7 +186,7 @@ function decrypt_file(k, fni, fno)
 			return nil, msg .. " (output)" 
 		end
 	end
-	r, msg = decrypt_stream(k, fhi, fho)
+	r, msg = decrypt_stream(k, fhi, fho, pkflag)
 
 	::close::
 	if fhi and fhi ~= io.stdin then assert(fhi:close()) end
@@ -187,13 +207,13 @@ end
 
 usage_str = strf([[
 Usage:  
-	pcrypt e key filein fileout  - encrypt file
-	pcrypt d key filein fileout  - decrypt file
-	pcrypt p key filein fileout  - pkencrypt file (with public key)
-	pcrypt s key filein fileout  - pkdecrypt file (with secret key)
+	pcrypt e   key filein fileout  - encrypt file
+	pcrypt d   key filein fileout  - decrypt file
+	pcrypt pke key filein fileout  - encrypt file with public key
+	pcrypt pkd key filein fileout  - decrypt file with secret key
 
-	pcrypt k kname   - generate a key (kname.k)
-	pcrypt K kname   - generate a pair of keys (kname.pk, kname.sk)
+	pcrypt k  kname   - generate a key (kname.k)
+	pcrypt kp kname   - generate a pair of keys (kname.pk, kname.sk)
 Notes:
 	key is either a keyname or a keyfile path.
 	keys are also looked for in ~/.config/pcrypt/.
@@ -207,28 +227,28 @@ function main()
 	local r, msg
 	local op, kfn, fni, fno, k
 	local opkext = {
-		e = ".k",
-		d = ".k",
-		p = ".pk",
-		s = ".sk",
+		e   = ".k",
+		d   = ".k",
+		pke = ".pk",
+		pkd = ".sk",
 	}
 	local defaultext
 	--
 	op, kfn, fni, fno = arg[1], arg[2], arg[3], arg[4]
 	if not (op and kfn) then goto usage end
-	if isin(op, {'e', 'd', 'p', 's'}) then
+	if isin(op, {'e', 'd', 'pke', 'pkd'}) then
 		if not (kfn and fni and fno) then goto usage end
 		defaultext = opkext[op]
 		k, msg = get_key32(kfn, defaultext)
 		if not k then perr(msg); return nil end
 	end
 	--
-	if op == "e" then r, msg = encrypt_file(k, fni, fno)
-	elseif op == "d" then r, msg = decrypt_file(k, fni, fno)
---~ 	elseif op == "p" then r, msg = pkencrypt_file(k, fni, fno)
---~ 	elseif op == "s" then r, msg = pkdecrypt_file(k, fni, fno)
-	elseif op == "k" then r, msg = genkey(kfn)
-	elseif op == "K" then r, msg = genkeypair(kfn)
+	if     op == "e"   then r, msg = encrypt_file(k, fni, fno)
+	elseif op == "d"   then r, msg = decrypt_file(k, fni, fno)
+	elseif op == "pke" then r, msg = encrypt_file(k, fni, fno, true)--pkflag
+	elseif op == "pkd" then r, msg = decrypt_file(k, fni, fno, true)--pkflag
+	elseif op == "k"   then r, msg = genkey(kfn)
+	elseif op == "kp"  then r, msg = genkeypair(kfn)
 	else goto usage
 	end--if
 	if r then
