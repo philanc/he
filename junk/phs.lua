@@ -17,7 +17,7 @@ local heserial = require 'heserial'
 local msock = require "msock"  -- minisocket-based msock
 --~ local msock = require "msockls"  -- Luasocket-based msock
 
-local list, strf, printf = he.list, string.format, he.printf
+local list, strf, printf, repr = he.list, string.format, he.printf, he.repr
 local yield = coroutine.yield
 local ssplit = he.split
 local startswith, endswith = he.startswith, he.endswith
@@ -61,7 +61,8 @@ function phs.serve()
 	while true do
 		if phs.must_exit or phs.must_reload then 
 			if client then msock.close(client); client = nil end
-			msock.close(server)
+			local r, msg = msock.close(server)
+			print("Server close:", r, msg)
 			os.exit(phs.must_exit and 1 or 0)
 		end
 		client, msg = msock.accept(server)
@@ -394,26 +395,6 @@ function phs.send_badrequest(req)
 end
 
 
-------------------------------------------------------------
--- read and write to local files
-
-function phs.fget(fname)
-	-- assume key is a non-rooted path (eg. "a/b/c" -no leading /)
-	
-	if fname:match"^/" then fname = phs.wwwroot .. fname
-	else fname = phs.wwwroot .. "/" .. fname
-	end
-	local content = nil
-	if he.fexists(fname) then content = he.fget(fname) end
-	return content
-end
-
-function phs.fput(fname, content)
-	if fname:match"^/" then fname = phs.wwwroot .. fname
-	else fname = phs.wwwroot .. "/" .. fname
-	end
-	he.fput(fname, content)
-end
 
 ------------------------------------------------------------
 -- mime types, serve file
@@ -443,10 +424,21 @@ function phs.guess_mimetype(fpath)
 	return mimetype
 end
 
+function phs.getfullpath(fname)
+	-- return the absolute pathname for a relative path 'fname'
+	if fname:find("%.%.") then return nil, "invalid pathname" end
+	if fname:match"^/" then 
+		fname = phs.wwwroot .. fname
+	else 
+		fname = phs.wwwroot .. "/" .. fname
+	end
+	return fname
+end
+
 function phs.serve_file(path) 
 	-- serve static files
-	local fpath = phs.wwwroot .. '/' .. path
-	if hefs.fexists(fpath) and hefs.isfile(fpath) then
+	local fpath = phs.getfullpath(path)
+	if fpath and hefs.fexists(fpath) and hefs.isfile(fpath) then
 		local mimetype = phs.guess_mimetype(fpath)
 		local content = he.fget(fpath)
 		return phs.send_content(content, mimetype)
@@ -454,8 +446,6 @@ function phs.serve_file(path)
 		return phs.send_notfound(path)
 	end
 end
-
-
 
 ------------------------------------------------------------
 -- REQUEST HANDLERS 
@@ -485,7 +475,7 @@ function phs.ht.reload_server(vars)
 end
 
 function phs.ht.f(vars) -- serve static files - url: /f/path/of/file
-	return phs.serve_file(path)
+	return phs.serve_file(vars.path)
 end
 
 function phs.ht.index(vars)
@@ -520,6 +510,8 @@ function phs.ht.test(vars)
 		txt = txt .. he.t2s(phs.parse_url(vars.content))
 	elseif startswith(path, 'pt') then --plain/text
 		txt = txt .. '\nvars.content:\n' .. vars.content
+	elseif startswith(path, 'bin') then --raw binary
+		txt = txt .. repr(vars.content)
 	else
 		txt = heserial.serialize(vars)
 	end--if
@@ -554,6 +546,33 @@ see
 https://support.mozilla.org/en-US/kb/how-stop-firefox-making-automatic-connections#w_speculative-pre-connections
 
 ---
+
+error 98 (cannot reuse address) just after exiting the server:
+The server socket entered state TIME_WAIT (waiting for completion by
+the client - up to some timeout. maybe ~ 1 min)
+
+solution is to use socket option O_REUSEADDR
+
+  What exactly does SO_REUSEADDR do?
+  This socket option tells the kernel that even if this port is busy (in
+  the TIME_WAIT state), go ahead and reuse it anyway.  If it is busy,
+  but with another state, you will still get an address already in use
+  error.  It is useful if your server has been shut down, and then
+  restarted right away while sockets are still active on its port.  You
+  should be aware that if any unexpected data comes in, it may confuse
+  your server, but while this is possible, it is not likely.
+
+int sockfd;
+int option = 1;
+sockfd = socket(AF_INET, SOCK_STREAM, 0);
+setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
+  
+see http://stackoverflow.com/questions/15198834/bind-failed-error-address-already-in-use
+http://www.softlab.ntua.gr/facilities/documentation/unix/unix-socket-faq/unix-socket-faq-2.html#time_wait
+
+---
+
+
 
 
 
