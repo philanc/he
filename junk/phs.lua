@@ -341,7 +341,7 @@ end
 
 
 ------------------------------------------------------------
--- send content
+-- prepare responses
 
 
 function phs.add_header(resp, name, value)
@@ -424,7 +424,7 @@ function phs.guess_mimetype(fpath)
 	return mimetype
 end
 
-function phs.getfullpath(fname)
+function phs.get_fullpath(fname)
 	-- return the absolute pathname for a relative path 'fname'
 	if fname:find("%.%.") then return nil, "invalid pathname" end
 	if fname:match"^/" then 
@@ -437,7 +437,7 @@ end
 
 function phs.serve_file(path) 
 	-- serve static files
-	local fpath = phs.getfullpath(path)
+	local fpath = phs.get_fullpath(path)
 	if fpath and hefs.fexists(fpath) and hefs.isfile(fpath) then
 		local mimetype = phs.guess_mimetype(fpath)
 		local content = he.fget(fpath)
@@ -446,6 +446,7 @@ function phs.serve_file(path)
 		return phs.resp_notfound(path)
 	end
 end
+
 
 ------------------------------------------------------------
 -- REQUEST HANDLERS 
@@ -518,12 +519,16 @@ function phs.ht.test(vars)
 	return phs.resp_content(txt)
 end
 
-function phs.ht.dat(vars)
-	local path = vars.path
+function phs.ht.testdat(vars)
+	local path = vars.reqpath
+	local fpath, msg = phs.get_fullpath(path)
+	if not fpath then return phs.resp_badrequest(msg) end
 	if vars.op == "GET" then
-		return phs.resp_badrequest("/dat GET NYI")
+		local content = he.fget(fpath)
+		return phs.resp_content(content, "application/octet-stream")
 	elseif vars.op == "POST" then
-		return phs.resp_badrequest("/dat POST NYI")
+		he.fput(fpath, vars.content)
+		return phs.resp_content("Done.")
 	else
 		return phs.resp_badrequest("Unknown op: " .. vars.op)
 	end
