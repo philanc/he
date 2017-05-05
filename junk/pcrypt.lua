@@ -1,9 +1,10 @@
 -- pcrypt
 
+--170504 added kpw command => v0.3
 --170303 added pk en(de)cryption, changed op names => v0.2
 --170302 initial implem.
 
-local pcrypt_VERSION = "pcrypt 0.2"
+local pcrypt_VERSION = "pcrypt 0.3"
 
 ------------------------------------------------------------------------
 -- local definitions
@@ -33,7 +34,6 @@ local function fput(fname, content)
 	assert(f:flush()) ; f:close()
 	return true
 end
-
 
 local function fileext(path)
 	-- return path extension (or empty string if none)
@@ -205,6 +205,19 @@ function genkeypair(kfn)
 	return fput(kfn .. ".pk", pk) and fput(kfn .. ".sk", sk)
 end
 
+function genkeypw(kfn)
+	-- hack - suppress echo (unix only)
+	os.execute("stty -echo")
+	print("Enter password")
+	local pw1 = io.read()
+	print("Enter password again")
+	local pw2 = io.read()
+	os.execute("stty echo")
+	if pw1 ~= pw2 then return nil, "entries do not match"  end
+	local k = lz.argon2i(pw1, "pcrypt", 20000, 20) --pw, salt, nkb, niter
+	return fput(kfn .. ".k", k)	
+end
+
 usage_str = strf([[
 Usage:  
 	pcrypt e   key filein fileout  - encrypt file
@@ -212,8 +225,9 @@ Usage:
 	pcrypt pke key filein fileout  - encrypt file with public key
 	pcrypt pkd key filein fileout  - decrypt file with secret key
 
-	pcrypt k  kname   - generate a key (kname.k)
-	pcrypt kp kname   - generate a pair of keys (kname.pk, kname.sk)
+	pcrypt k   kname  - generate a key (kname.k)
+	pcrypt kp  kname  - generate a pair of keys (kname.pk, kname.sk)
+	pcrypt kpw kname  - generate a key (kname.k) from a password
 Notes:
 	key is either a keyname or a keyfile path.
 	keys are also looked for in ~/.config/pcrypt/.
@@ -249,6 +263,7 @@ function main()
 	elseif op == "pkd" then r, msg = decrypt_file(k, fni, fno, true)--pkflag
 	elseif op == "k"   then r, msg = genkey(kfn)
 	elseif op == "kp"  then r, msg = genkeypair(kfn)
+	elseif op == "kpw" then r, msg = genkeypw(kfn)
 	else goto usage
 	end--if
 	if r then
