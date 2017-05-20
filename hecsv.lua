@@ -1,5 +1,6 @@
 -- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
+
 --[[ 
 
 hecsv - comma separated value (CSV) list processing
@@ -112,7 +113,7 @@ local function readrecord(src, ic)
     i = ic
     while true do
         s, j, lastfield, lastrecord = readfield(src, i)
-        fl:app(s)
+        fl:insert(s)
         if lastfield then break end
         i = j
     end
@@ -126,7 +127,7 @@ function csv.parse(src)
     local last = false
     while not last do
         r, i, last = readrecord(src, i)
-        rl:app(r)
+        rl:insert(r)
     end
     return rl
 end
@@ -147,7 +148,7 @@ function csv.l2line(lst)
 			es:gsub([["]], [[""]])
 			es  = [["]] .. es .. [["]]
 		end
-		l:app(es)
+		l:insert(es)
 	end--for
 	return l:join(',')
 end
@@ -157,9 +158,9 @@ function csv.ll2csv(lst)
 	-- all elements of lst must be lists
 	local l = list()
 	for i, li in ipairs(lst) do
-		l:app(csv.l2line(li))
+		l:insert(csv.l2line(li))
 	end--for
-	return l:join('\n')
+	return l:concat('\n')
 end
 
 ------------------------------------------------------------------------

@@ -43,16 +43,17 @@ local function serialize(x)
 		if mt == he.list then  -- serialize as a list (only array part)
 			prefix = 'list{\n' 
 			for i,v in ipairs(x) do 
-				app(rl, serialize(v)); app(rl, ',\n')
+				rl:insert(serialize(v))
+				rl:insert(',\n')
 			end
-			return prefix .. rl:join().. '}'
+			return prefix .. rl:concat().. '}'
 		end
 		-- serialize as a regular table (all keys)
 		prefix = '{\n' 
 		for k,v in pairs(x) do 
-			app(rl, strf('[%s]=%s,\n', serialize(k), serialize(v)))
+			rl:insert(strf('[%s]=%s,\n', serialize(k), serialize(v)))
 		end 
-		return prefix .. rl:join().. '}'
+		return prefix .. rl:concat() .. '}'
 	else
 		error('serialize: unsupported type ' .. type(x))
 	end--if type
@@ -86,14 +87,15 @@ local function fput(fname, x, encode)
 	-- (encode can be used to compress and/or encrypt the serialized data)
 	local s = serialize(x)
 	if encode then s = encode(s) end
-	he.fput(fname, s)
+	return he.fput(fname, s)
 end--fput()
 
 local function fget(fname, decode)
 	-- read serialized data from file 'fname' and returned deserialized data.
 	-- decode is an optional decoding function (closure).  
 	-- if provided, it is applied to the serialized data. 
-	local s = he.fget(fname)
+	local s, msg = he.fget(fname)
+	if not s then return nil, msg end
 	if decode then s = decode(s) end
 	return deserialize(s)
 end--fget()

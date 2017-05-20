@@ -9,7 +9,7 @@ local he = require 'he'
 assert(he)
 
 -- make sure we test the correct version
-assert(he.VERSION:match("^he093,"))
+assert(he.VERSION:match("^he095,"), "bad he version")
 
 -- check that _G and string are not extended
 assert(not _G.he)
@@ -92,26 +92,24 @@ d = list.map(c, function(x) return type(x) == 'string' and x end)
 assert(#d == 0)
 -- table funcs
 a = {'a', 'b', 123}
-assert(list.join(a, '') == 'ab123' and list.join(a, '/') == 'a/b/123')
-list.app(a, 1); assert(a[4]==1)
+assert(list.concat(a, '') == 'ab123' and list.concat(a, '/') == 'a/b/123')
+list.insert(a, 1); assert(a[4]==1)
 table.insert(a, 2, 99); assert(a[1]=='a' and a[2]==99 and a[5]==1)
 table.remove(a, 2); assert(a[1]=='a' and a[2]=='b')
 a = {9,3,5,1}; table.sort(a); assert(he.equal(a, {1,3,5,9}))
 a = {}; table.sort(a); assert(he.equal(a, {}))
-a = {}; list.app(a, 11); assert(a[1]==11)
-list.app(a, 22); assert(a[2]==22)
+a = {}; list.insert(a, 11); assert(a[1]==11)
+list.insert(a, 22); assert(a[2]==22)
 -- any_elem, all_elems
 a = {9,3,5,1}
 assert(list.find_elem(a, function(v) return v==5 end))
 assert(list.check_elems(a, function(v) return v<55 end))
 assert(not list.find_elem(a, function(x) return type(x)=='string' end))
--- list iterator elems()
-b = {} ; for e in list.items(a) do list.app(b, e) end ;  assert(he.equal(a,b))
 
 t = list()
-t:app{key=222, name='vic', age=33}
-t:app{key='u111', name='paul', age=47}
-t:app{key=333, name='mary', age=12}
+t:insert{key=222, name='vic', age=33}
+t:insert{key='u111', name='paul', age=47}
+t:insert{key=333, name='mary', age=12}
 b = t:filter(function(e) return e.name=='mary' end)
 assert(#b == 1 and b[1].age == 12)
 --~ b = t:filter(he.testf, 'name', string.match, '.*a');  
@@ -128,20 +126,20 @@ b = list()
 --~ pp('list', list)
 --~ pp('a', a)
 for i,v in ipairs(a:sorted()) do 
-	b:app(v) 
+	b:insert(v) 
 end
-assert(b:join('') == "112233")
+assert(b:concat('') == "112233")
 
 -- test list-based set functions
 a = list();  b = a:uniq();  assert(b:equal{})
 a = list{11,22,11,11,33,11,22,22}
 b = a:uniq();  assert(b:equal{11, 22, 33})
-b:uapp(55) ; b:uapp(66) ; b:uapp(66) ; b:uapp(55) ; 
+b:uinsert(55) ; b:uinsert(66) ; b:uinsert(66) ; b:uinsert(55) ; 
 assert(b:equal{11, 22, 33, 55, 66})
 b:uextend{11,11,66,66,11};  assert(b:equal{11, 22, 33, 55, 66})
 b:uextend{};  assert(b:equal{11, 22, 33, 55, 66})
-a:urem(22);  assert(a:equal{11,11,11,33,11,22,22})
-b:urem(77);  assert(b:equal{11, 22, 33, 55, 66})
+a:uremove(22);  assert(a:equal{11,11,11,33,11,22,22})
+b:uremove(77);  assert(b:equal{11, 22, 33, 55, 66})
 
 -- l2s, t2s
 l = {1,2}
@@ -162,14 +160,14 @@ assert(he.count(a, function(v) return list.has({22, 'y'}, v) end) == 1)
 assert(he.count(a, function(v) return list.has({'a', 'y'}, v) end) == 0)
 
 -- keys, sortedkeys
-b = list(); for k,v in pairs(a) do b:app(k) end
+b = list(); for k,v in pairs(a) do b:insert(k) end
 assert(b:has('x') and b:has('y'))
-b = list(); for i,k in ipairs(list(he.keys(a))) do b:app(k) end
+b = list(); for i,k in ipairs(list(he.keys(a))) do b:insert(k) end
 assert(b:has('x') and b:has('y'))
-b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:app(k) end
-assert(b:join('') == "xy")
-b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:app(a[k]) end
-assert(b:join('') == "1122")
+b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:insert(k) end
+assert(b:concat('') == "xy")
+b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:insert(a[k]) end
+assert(b:concat('') == "1122")
 -- check can sort heterogeneous keys
 t = {a=11, [123]=111, xcv=222, [3488]=333}
 b = he.sortedkeys(t)
@@ -199,49 +197,6 @@ assert(he.equal(d, he.update(d, {})))
 assert(he.equal(d, he.update(d, d)))
 
 
-
-------------------------------------------------------------------------
--- test iterators
-
-local iter = he.iter
-
-local odd = function(i) return i % 2 == 1 end
-
-local t, t1, t2, i, l, x
-local txt, fh, msg
-
--- count, filter, take
--- also verify that :dbg() and :check_err() do not change the result 
-
-local dbgmsg
-iter.log = function(it, msg) dbgmsg = msg end
-
-t = {}
-for i in iter.count(10,3)
-	:filter(odd)
-	:take(3) 
-	:dbg('---dbg ok.')
-	:check_err()
-	do t[#t+1] = i end
-assert(he.equal(t, {13, 19, 25}))
-assert(dbgmsg == '---dbg ok.')
-
--- tolist
-t = list{11,22,33}
-assert(he.equal(t, iter.items(t):tolist()))
-t = iter.count(10,3):filter(odd):take(3):tolist(); 
-assert(he.equal(t, list{13, 19, 25}))
-
---first
-assert(iter.count():first() == 1)
-
--- map
-t = iter.count(10,3):filter(odd)
-	:map(function(x) return 2*x end)
-	:take(3):tolist(); 
-assert(he.equal(t, list{26, 38, 50}))
-
--- iter.flines, records:  uses a file => tested below
 
 ------------------------------------------------------------------------
 -- test misc functions
@@ -334,13 +289,9 @@ assert(he.fileext("/de.f/") == "")
 -- isabspath
 assert(he.isabspath "/")
 assert(he.isabspath "/abc/d")
-if he.windows then
-	assert(he.isabspath "f:/abc/d")
-	assert(he.isabspath "F:/abc/d")
-else
-	assert(not he.isabspath "f:/abc/d")
-	assert(not he.isabspath "F:/abc/d")
-end
+
+assert(he.windows and he.isabspath "f:/abc/d" or not he.isabspath "f:/abc/d")
+assert(he.windows and he.isabspath "F:/abc/d" or not he.isabspath "F:/abc/d")
 assert(not he.isabspath "")
 assert(not he.isabspath "abc/d")
 assert(not he.isabspath "f:abc/d")
@@ -383,53 +334,9 @@ else -- assume linux
 	assert(he.endswith(x[1], 'he_test_file.txt'))
 end -- if 
 
-
--- iter.fread()
-txt = [[abc def
-== oops, a comment
-gh ijkl
-mnop qr st<eof>]] -- do not change this text!!
-he.fput(fn, txt)
-t = {}
-fh, msg = io.open(fn)
---~ for l in iter.fread(fh) do print(he.repr(l)) end
-assert(iter.fread(fh):first() == [[abc def]])
--- check fh has not been closed
-assert(io.type(fh) == 'file')
-assert(fh:close())
-
---iter.records
-fl = he.lines(he.fget(fn))
-fh, msg = io.open(fn)
---~ for l in iter.fread(fh, 11):lines() do print('>>', #l, he.repr(l)) end
---~ fh:seek('set')--rewind file
-assert(he.equal(iter.fread(fh, 16):lines():tolist(), fl))
-fh:seek('set')--rewind file
-assert(he.equal(iter.fread(fh, 5):lines():tolist(), fl))
-assert(fh:close())
-
-fh, msg = io.open(fn)
-local rl = list()
-for l in iter.fread(fh, 11):records('\n==%s+') do 
-	rl:app(#l)
---~ 	print('>>', #l, he.repr(l)) 
-end
-assert(rl[1]==7 and rl[2]==39)
-fh:seek('set')--rewind file
-assert(fh:close())
+os.remove(fn)
 
 
--- matching
-fh, msg = io.open(fn)
-l = iter.fread(fh):map(string.upper):matching("IJ"):first()
-assert(l == [[GH IJKL]])
-fh:close()
-
--- @@@ cannot remove the file since it is probably still open. How to close it ???
--- cleanup the tmp file
-assert(os.remove(fn))
-
--- ]==]
 
 ------------------------------------------------------------------------
 --~ pp(he)

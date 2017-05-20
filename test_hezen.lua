@@ -50,6 +50,7 @@ end
 ------------------------------------------------------------------------
 -- rabbit
 do
+if lz.rabbit then
 	-- quick test with some eSTREAM test vectors
 	local key, iv, txt, exp, ec
 	local key0 = ('\0'):rep(16)
@@ -84,7 +85,9 @@ do
 				D74F926E6976CD0A9B1A3AE9DD8CB43F
 				F5CD60F2541FF7F22C5C70CE07613989 ]]
 	assert(ec == exp)
-end
+
+end --if lz.rabbit
+end --do
 
 ------------------------------------------------------------------------
 -- md5, sha1
@@ -93,10 +96,12 @@ do
 	assert(stx(lz.md5('')) == 'd41d8cd98f00b204e9800998ecf8427e')
 	assert(stx(lz.md5('abc')) == '900150983cd24fb0d6963f7d28e17f72')
 	-- sha1
+	if lz.sha1 then
 	assert(stx(lz.sha1(''))
 		== 'da39a3ee5e6b4b0d3255bfef95601890afd80709')
 	assert(stx(lz.sha1('The quick brown fox jumps over the lazy dog'))
 		== '2fd4e1c67a2d28fced849ee1bb76e7391b93eb12')	
+	end--if lz.ha1
 end
 ------------------------------------------------------------------------
 -- b64 encode/decode

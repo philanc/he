@@ -136,7 +136,7 @@ function hefs.findmap(dp, func, norecurse)
 		else
 			local pn = he.makepath(dp, fn)
 			local e = func(pn)
-			if e then app(pl, e) end
+			if e then pl:insert(e) end
 			if isdir(pn) and not norecurse then 
 				pl:extend(hefs.findmap(pn, func)) 
 			end
@@ -213,21 +213,21 @@ function hefs.rmdirs(pn)
 end
 
 --
-local _dirstack = { }
+local _dirstack = list()
 --
 function hefs.pushd(dir, dirstack)
 	-- push/pop dirs  usage:
 	-- hefs.pushd('/a/b'); ...do smtg.... hefs.popd()
 	-- 
 	dirstack = dirstack or _dirstack
-	list.app(dirstack, hefs.currentdir())
+	dirstack:insert(hefs.currentdir())
 	hefs.chdir(dir)
 	return dir
 end
 
 function hefs.popd(dirstack)
 	dirstack = dirstack or _dirstack
-	local prevdir = list.pop(dirstack)
+	local prevdir = dirstack:pop()
 	if prevdir then hefs.chdir(prevdir)  end
 	return prevdir
 end
