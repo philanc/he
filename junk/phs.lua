@@ -8,14 +8,11 @@ phs - a tiny HTTP server
 
 ]]
 
-------------------------------------------------------------
+------------------------------------------------------------------------
 -- imports and local definitions
 
 local he = require 'he'
 local hefs = require 'hefs'
-local heserial = require 'heserial'
-local msock = require "msock"  -- minisocket-based msock
---~ local msock = require "msockls"  -- Luasocket-based msock
 
 local list, strf, printf, repr = he.list, string.format, he.printf, he.repr
 local yield = coroutine.yield
@@ -27,21 +24,144 @@ local function log(...)
 	print(he.isodate():sub(10), ...)
 end
 
-------------------------------------------------------------
+------------------------------------------------------------------------
+-- socket interface - provided by object msock
+
+local msock
+if he.windows then 
+	--------------------------------------------------------------------
+	-- windows / luasocket-based msock
+	
+	-- minimal socket (only the core dll + bind and connect)
+	-- try 'socket' first (used by current slua for win)
+	local socketfound,  socket = pcall(require,  'socket')
+	-- if not found, try standard name for so/dll
+	if not socketfound then 
+		socketfound,  socket = pcall(require,  'socket.core') 
+	end
+	
+	-- for ipv6, just replace socket.tcp() with socket.tcp6() 
+	-- in connect() and bind() below.
+
+	function socket.connect(address, port, laddress, lport)
+		local sock, err = socket.tcp()
+		if not sock then return nil, err end
+		if laddress then
+			local res, err = sock:bind(laddress, lport, -1)
+			if not res then return nil, err end
+		end
+		local res, err = sock:connect(address, port)
+		if not res then return nil, err end
+		return sock
+	end
+
+	function socket.bind(host, port, backlog)
+		local sock, err = socket.tcp()
+		if not sock then return nil, err end
+		sock:setoption("reuseaddr", true)
+		local res, err = sock:bind(host, port)
+		if not res then return nil, err end
+		res, err = sock:listen(backlog)
+		if not res then return nil, err end
+		return sock
+	end
+
+	-- msock functions
+
+	msock = {}
+	msock.bind = socket.bind
+	function msock.accept(so) return so:accept() end
+	function msock.getserverinfo(so) return so:getsockname() end
+	function msock.getclientinfo(so) return so:getpeername() end
+	function msock.write(so, data) return so:send(data) end
+	function msock.bufreader(so) return function(n) return so:receive(n) end end
+	function msock.close(so) return so:close() end
+
+else 
+	--------------------------------------------------------------------
+	-- linux / minisock-based msock
+	
+	msock = require "minisock"
+
+	function msock.getserverinfo(fd)
+		local rawaddr, msg = msock.getsockname(fd)
+		if not rawaddr then return nil, msg end
+		return msock.getnameinfo(rawaddr)
+	end
+
+	function msock.getclientinfo(fd)
+		local rawaddr, msg = msock.getpeername(fd)
+		if not rawaddr then return nil, msg end
+		return msock.getnameinfo(rawaddr)
+	end
+
+	function msock.bufreader(fd)
+		-- buffered read iterator over fd
+		-- return a "bufread()" function 
+		--    bufread()      reads a line
+		--    bufread(n)     reads n bytes
+		local buf, bi = "", 1
+		local bt, nr = {}, 0
+		return (function(n)
+			if not n then -- read a line
+				while true do
+					local i, j = buf:find("\r?\n", bi)
+					if i then -- NL found. return the line
+						local l = buf:sub(bi, i-1)
+	--~ 					print("LL", l, #l, bi, i, j)
+						bi = j + 1
+						return l
+					else -- NL not found. read more bytes into buf
+						local b, msg = msock.read(fd)
+						print("READ", b and #b)
+						if not b then return nil, msg end
+						if #b == 0 then return nil, "EOF" end
+						buf = buf:sub(bi) .. b
+					end--if	
+				end--while reading a line
+			else -- read n bytes
+				bt = { buf:sub(bi) }
+				nr = #buf
+				print('N, NR', n, nr)
+				while true do
+					if n <= nr then -- enough bytes in bt
+						--FIXME: eats more than n bytes
+						-- ok for http but not general purpose...
+						return table.concat(bt)
+					else -- not enough, read more
+						local b, msg = msock.read(fd)
+						if not b then return nil, msg end
+						if #b == 0 then return nil, "EOF" end
+						nr = nr + #b
+						table.insert(bt, b)
+					end
+				end--while reading n bytes
+			end--if
+		end)
+	end--bufreader
+	
+end --if "windows or linux minisock"
+------------------------------------------------------------------------
+
+
+
+------------------------------------------------------------------------
 -- HTTP SERVER 
-------------------------------------------------------------
+------------------------------------------------------------------------
 
 -- phs, the root server object
 
 phs = {
-	-- configuration
+	-- default configuration
 	port = '3090',
 	-- bind_address = '*', -- for access from other hosts
 	bind_address = 'localhost', -- for local access only 
-	wwwroot = '.',
+	-- bind_address = '::1',    -- for ip6 localhost
+
+	wwwroot = '.', -- serve from the current directory
 	rootdefault = '/index.html',
+	-- server state
 	version = 'phs.03',
-	-- state
 	must_exit = false,
 	must_reload = false,
 	debug_mode = true,
@@ -79,7 +199,7 @@ function phs.serve()
 end--server()
 
 
-------------------------------------------------------------
+------------------------------------------------------------------------
 -- serve client utilities -- receive request, headers, send response
 
 local function receive_request(bufread, vars)
@@ -171,7 +291,7 @@ local function send_response(client, resp)
 	assert(resp.status, "send_response(): status not defined")
 	local statusline = get_statusline(resp.status)
 	resp.content = resp.content or ""
-	local h = list.join(resp.headers, "\r\n")
+	local h = list.concat(resp.headers, "\r\n")
 	local data = statusline .. "\r\n".. h .. "\r\n\r\n" .. resp.content
 	return msock.write(client, data)	
 end--send_response
@@ -228,13 +348,13 @@ function phs.serve_client(client)
 end--serve_client()
 
 
-------------------------------------------------------------
+------------------------------------------------------------------------
 -- UTILITIES FOR REQUEST HANDLERS 
-------------------------------------------------------------
+------------------------------------------------------------------------
 
 -- socket functions should not be directly used here and below.
 
-------------------------------------------------------------
+------------------------------------------------------------------------
 -- encoded content - application/x-www-form-urlencoded
 
 function phs.url_escape (str)
@@ -271,7 +391,7 @@ function phs.parse_urlencoded(data)
 	local function insval(k, v)
 		k = unesc(k);  v = unesc(v) 
 		if not t[k] then t[k]=v; return end
-		if type(t[k]) == table then list.app(t[k], v); return end
+		if type(t[k]) == table then list.insert(t[k], v); return end
 		t[k] = {t[k], v}; return
 	end
 	string.gsub (data, "([^&=]+)=([^&=]*)&?", insval)
@@ -293,7 +413,7 @@ function phs.parse_url(url)
 	return path, args
 end
 
-------------------------------------------------------------
+------------------------------------------------------------------------
 -- encoded content - multipart/form-data
 
 local repr=he.repr
@@ -333,20 +453,20 @@ function phs.parse_multipart(data)
 		
 		part = string.sub(data, i, j - 1)
 		--print(i,j, k,  repr(part))
-		list.app(parts, {head=head, data=partdata})
+		list.insert(parts, {head=head, data=partdata})
 		i = k + 3 --skip the crlf after the boundary
 	end--while
 	return parts
 end
 
 
-------------------------------------------------------------
+------------------------------------------------------------------------
 -- prepare responses
 
 
 function phs.add_header(resp, name, value)
 	resp.headers = resp.headers or {}
-	list.app(resp.headers, strf("%s: %s", name, value))
+	list.insert(resp.headers, strf("%s: %s", name, value))
 	return resp
 end
 
@@ -396,7 +516,7 @@ end
 
 
 
-------------------------------------------------------------
+------------------------------------------------------------------------
 -- mime types, serve file
 
 phs.mimetypes = {
@@ -448,9 +568,9 @@ function phs.serve_file(path)
 end
 
 
-------------------------------------------------------------
+------------------------------------------------------------------------
 -- REQUEST HANDLERS 
-------------------------------------------------------------
+------------------------------------------------------------------------
 
 
 phs.ht = {}  -- the request handler table
@@ -487,66 +607,12 @@ end
 
 phs.ht[""] = phs.ht.index -- default action for path = '/'
 
-------------------------------------------------------------
---test handlers: GET, POST (urlencoded and multipart)
-
-function phs.ht.test(vars)
-	local path = vars.path
-	if vars.op == "GET" then
-		print("test GET   path:", path)
-		print("params:", he.t2s{phs.parse_url(path)})
-		local txt = strf("test_get: path = %s\ncontent:\n", path) 
-		txt = txt .. he.t2s{phs.parse_url(path)} .. "\nvars:\n"
-		txt = txt .. he.t2s(vars)
-		return phs.resp_content(txt)
-	end --if get
-	-- assume it is a POST request
-	print("test_post:   path:", path)
-	print("test_post:   content length:", #vars.content)
---~ 	he.fput('fdata', vars.content)
-	local txt = strf("test_post: path = %s\ncontent:\n", path) 
-	if startswith(path, 'mp') then --multipart
-		txt = txt .. heserial.serialize(phs.parse_multipart(vars.content))
-	elseif startswith(path, 'ue') then --url-encoded
-		txt = txt .. he.t2s(phs.parse_url(vars.content))
-	elseif startswith(path, 'pt') then --plain/text
-		txt = txt .. '\nvars.content:\n' .. vars.content
-	elseif startswith(path, 'bin') then --raw binary
-		txt = txt .. repr(vars.content)
-	else
-		txt = heserial.serialize(vars)
-	end--if
-	return phs.resp_content(txt)
-end
-
-function phs.ht.testdat(vars)
-	local path = vars.reqpath
-	local fpath, msg = phs.get_fullpath(path)
-	if not fpath then return phs.resp_badrequest(msg) end
-	if vars.op == "GET" then
-		local content = he.fget(fpath)
-		return phs.resp_content(content, "application/octet-stream")
-	elseif vars.op == "POST" then
-		he.fput(fpath, vars.content)
-		return phs.resp_content("Done.")
-	else
-		return phs.resp_badrequest("Unknown op: " .. vars.op)
-	end
-end
-
-
-------------------------------------------------------------
--- 
-
-if arg[1] then
-	require(arg[1])
-end
-
-phs.serve()
+------------------------------------------------------------------------
+return phs
 
 
 
---[===[  Notes
+--[===[  phs notes
 
 ---
 
