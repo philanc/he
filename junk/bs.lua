@@ -89,35 +89,60 @@ function blockstorage.readlastblock(db)
 	return b
 end
 
+function blockstorage.unpackblock(b)
+	local bc, bname, battr = sunpack("<s4s2s2", b)
+	return bc, bname, battr
+end
+
+function blockstorage.unpackcontent(b)
+	local bc = sunpack("<s4", b)
+	return bc
+end
+
+function blockstorage.packblock(bc, bname, battr)
+	battr = battr or ""
+	local b = spack("<s4s2s2", bc, bname, battr)
+	return b
+end
+
 function blockstorage.readindex(db)
 	local b = db:readlastblock()
-	local idx, msg = heserial.deserialize(b)
+	local bc, bname = blockstorage.unpackblock(b)
+	if bname ~= "*index*" then return nil, "not an index" end
+	local idx, msg = heserial.deserialize(bc)
 	assert(idx, "cannot deserialize index")
 	db.index = idx
+	return true
 end
 
 function blockstorage.writeindex(db)
-	local b = heserial.serialize(db.index)
+	local bc = heserial.serialize(db.index)
+	local b = blockstorage.packblock(bc, "*index*")
 	db:writeblock(b)
 end
 
 function blockstorage.get(db, bname)
 	local ba = db.index[bname] 
+	if not ba then return nil, "unknown block" end
 	local b = db:readblock(ba.offset, ba.ln)
-	return b
+	local bc = blockstorage.unpackcontent(b)
+	return bc, ba.battr
 end
 
-function blockstorage.put(db, bname, bcontent)
+function blockstorage.put(db, bname, bcontent, battr)
 	local ba = db.index[bname] 
 	if not ba then 
 		db.index[bname] = {}
 		ba = db.index[bname] 
 	end
-	local offset = db:writeblock(bcontent)
+	battr = battr or ""
+	ba.battr = battr
+	local b = blockstorage.packblock(bcontent, bname, battr)
+	local offset = db:writeblock(b)
 	ba.offset = offset
-	ba.ln = #bcontent
-	ba.dummy = "hello"
-	he.ppt(ba)
+	ba.ln = #b
+--~ 	ba.dummy = "hello"
+--~ 	he.ppt(ba)
 	return true
 end
 
@@ -173,7 +198,30 @@ function test_put_get()
 	db:close()
 end
 
-test_read_writeblock()
-test_put_get()
+function test_arc()
+	os.remove('zza')
+	db = blockstorage()
+	key = ('k'):rep(32)
+	db:open('zza', key)
+	for i, fn in ipairs(hefs.findfiles("/ut/lib/scite05")) do
+		local fc = he.fget(fn)
+		db:put(fn, fc)
+	end
+	db:writeindex()
+	db:close()
+	db = nil	
+	db = blockstorage()
+	db:open('zza', key)
+	db:readindex()
+	skt = he.sortedkeys(db.index)
+	for i, k in ipairs(skt) do
+		local bc = db:get(k)
+		print(k, #bc)
+	end
+end--test_arc()
 
+--~ test_read_writeblock()
+--~ test_put_get()
+
+test_arc()
 
