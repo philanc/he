@@ -27,6 +27,7 @@ function blockstorage.open(db, dbname, key)
 	db.seed = hezen.randombytes(24) -- used to build the nonces
 	db.sig = 0x02020202
 	db.index = {}
+	db.changed = false
 	return db
 end
 
@@ -95,14 +96,11 @@ function blockstorage.unpackblock(b)
 end
 
 function blockstorage.unpackcontent(b)
-	local bc = sunpack("<s4", b)
-	return bc
+	return  sunpack("<s4", b)
 end
 
 function blockstorage.packblock(bc, bname, battr)
-	battr = battr or ""
-	local b = spack("<s4s2s2", bc, bname, battr)
-	return b
+	return spack("<s4s2s2", bc, bname, battr or "")
 end
 
 function blockstorage.readindex(db)
@@ -139,12 +137,20 @@ function blockstorage.put(db, bname, bcontent, battr)
 	ba.battr = battr
 	local b = blockstorage.packblock(bcontent, bname, battr)
 	local offset = db:writeblock(b)
+	db.changed = true
 	ba.offset = offset
 	ba.ln = #b
 --~ 	ba.dummy = "hello"
 --~ 	he.ppt(ba)
 	return true
 end
+
+function blockstorage.save(db)
+	db:writeindex()
+	db:flush()
+	db.changed = false
+end
+
 
 ------------------------------------------------------------------------
 --~ return blockstorage
