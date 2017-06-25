@@ -1,4 +1,34 @@
 
+--[[
+
+=== blockstorage
+
+high-level functions
+
+opendb()
+put()
+get()
+save()
+close()
+
+low-level functions
+
+openfile()
+readblock()
+readlasblock()
+writeblock()
+flush()
+
+readindex()
+writeindex()
+
+packblock()
+unpackblock()
+unpackcontent()
+
+
+]]
+
 local he = require 'he'
 local hefs = require 'hefs'
 local heserial = require 'heserial'
@@ -18,7 +48,7 @@ local function prf(...) print(string.format(...)) end
 
 blockstorage = he.class()
 
-function blockstorage.open(db, dbname, key)
+function blockstorage.openfile(db, dbname, key)
 	-- open db
 	local fh, msg = io.open(dbname, 'a+b')
 	if not fh then return nil, msg end
@@ -163,7 +193,7 @@ function test_read_writeblock()
 	os.remove('zzd')
 	db = blockstorage()
 	key = ('k'):rep(32)
-	db:open('zzd', key)
+	db:openfile('zzd', key)
 	--~ print(db:writeblock("bbbbb"))
 	--~ print(db:writeblock("ccc"))
 	off = db:writeblock(('a'):rep(100000))
@@ -175,7 +205,7 @@ function test_read_writeblock()
 	db:close()
 	db = nil
 	db = blockstorage()
-	db:open('zzd', key)
+	db:openfile('zzd', key)
 	b = db:readblock(100068, 200000)
 	assert(b == ('b'):rep(200000))
 	b = db:readlastblock()
@@ -187,7 +217,7 @@ function test_put_get()
 	os.remove('zzd')
 	db = blockstorage()
 	key = ('k'):rep(32)
-	db:open('zzd', key)
+	db:openfile('zzd', key)
 	db:put('aa', ('a'):rep(100000))
 	db:put('bb', ('b'):rep(200000))
 	db:put('cc', ('c'):rep(300000))
@@ -195,7 +225,7 @@ function test_put_get()
 	db:close()
 	db = nil
 	db = blockstorage()
-	db:open('zzd', key)
+	db:openfile('zzd', key)
 	db:readindex()
 	b = db:get('bb')
 	assert(b == ('b'):rep(200000))
@@ -208,7 +238,7 @@ function test_arc()
 	os.remove('zza')
 	db = blockstorage()
 	key = ('k'):rep(32)
-	db:open('zza', key)
+	db:openfile('zza', key)
 	for i, fn in ipairs(hefs.findfiles("/ut/lib/scite05")) do
 		local fc = he.fget(fn)
 		db:put(fn, fc)
@@ -217,7 +247,7 @@ function test_arc()
 	db:close()
 	db = nil	
 	db = blockstorage()
-	db:open('zza', key)
+	db:openfile('zza', key)
 	db:readindex()
 	skt = he.sortedkeys(db.index)
 	for i, k in ipairs(skt) do
