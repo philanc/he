@@ -10,7 +10,7 @@ exec      convenience function (wraps execute2)
 
 ]]
 local he = require 'he'
-he.interactive()
+--~ he.interactive()
 
 local strf = string.format
 local byte, char = string.byte, string.char
