@@ -25,7 +25,7 @@ assert(hefs.mkdir(tmp))
 
 assert(hefs.isdir(tmp))
 local b=false; 
-for x in hefs.dir(he.tmpdir()) do b = b or x=='hxfs' end
+for x in hefs.dir(he.tmpdir()) do b = b or x=='hefs' end
 assert(b)
 assert(list.has(hefs.dirs(he.tmpdir()), tmp))
 
