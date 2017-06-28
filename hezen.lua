@@ -66,11 +66,11 @@ function hezen.encrypt_stream(k, fhi, fho, pkflag)
 	local nonce
 	if pkflag then
 		pk = k
-		rpk, rsk = lz.keypair()
+		rpk, rsk = hezen.keypair()
 		nonce = rpk  -- use the random pk as the nonce
-		k = lz.key_exchange(rsk, pk) -- get the session key
+		k = hezen.key_exchange(rsk, pk) -- get the session key
 	else
-		nonce = lz.randombytes(32)
+		nonce = hezen.randombytes(32)
 	end
 	local ninc = 0
 	local eof = false
@@ -87,7 +87,7 @@ function hezen.encrypt_stream(k, fhi, fho, pkflag)
 		end
 		block = assert(fhi:read(rdlen))
 		eof = (#block < rdlen)
-		local cblock = lz.aead_encrypt(k, nonce, block, ninc, aad)
+		local cblock = hezen.aead_encrypt(k, nonce, block, ninc, aad)
 		ninc = ninc + 1
 		assert(fho:write(cblock))
 	end--while
@@ -121,13 +121,13 @@ function hezen.decrypt_stream(k, fhi, fho, pkflag)
 			if pkflag then 
 				rpk = nonce -- the nonce is also the random public key
 				sk = k
-				k = lz.key_exchange(sk, rpk) -- get the session key
+				k = hezen.key_exchange(sk, rpk) -- get the session key
 			end
 			aadlen = 32
 		else
 			aadlen = 0
 		end
-		local pblock, msg = lz.aead_decrypt(k, nonce, block, ninc, aadlen)
+		local pblock, msg = hezen.aead_decrypt(k, nonce, block, ninc, aadlen)
 		ninc = ninc + 1
 		if not pblock then return nil, msg end
 		assert(fho:write(pblock))
@@ -145,7 +145,7 @@ function hezen.encrypt_file(k, fni, fno, pkflag)
 	if not fhi then return nil, errmsg end
 	fho, errmsg = io.open(fno, "wb")
 	if not fho then fhi:close(); return nil, errmsg end
-	r, errmsg = encrypt_stream(k, fhi, fho, pkflag)
+	r, errmsg = hezen.encrypt_stream(k, fhi, fho, pkflag)
 	fhi:close()
 	fho:close()
 	return r, errmsg
@@ -161,7 +161,7 @@ function hezen.decrypt_file(k, fni, fno, pkflag)
 	if not fhi then return nil, errmsg end
 	fho, errmsg = io.open(fno, "wb")
 	if not fho then fhi:close(); return nil, errmsg end
-	r, errmsg = decrypt_stream(k, fhi, fho, pkflag)
+	r, errmsg = hezen.decrypt_stream(k, fhi, fho, pkflag)
 	fhi:close()
 	fho:close()
 	return r, errmsg

@@ -37,7 +37,3 @@ assert(not pcall(parse, '"a,b'))
 assert(not pcall(parse, '"a\nb'))
 assert(not pcall(parse, 'a\n"b'))
 
---~ print("test_hecsv: ok")
-
-return true
-

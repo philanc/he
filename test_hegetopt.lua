@@ -51,5 +51,4 @@ ot, msg = getopt("h6z:v", al)
 assert(not ot)
 assert(msg:match"invalid option string: ")
 
---~ print(ot, msg); ppt(ot)
 

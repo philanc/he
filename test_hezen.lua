@@ -267,7 +267,28 @@ assert(stx(k) ==
 	"32cd28269ad97a7f9e58a4e03fab7d63ba73c4111395c53283f09b21de713b76")
 
 
+------------------------------------------------------------------------
+-- hezen encrypt, decrypt
 
---~ print("test_hezen", "ok")
+local hefs = require "hefs"
 
-return true
+-- make a tmp dir (dont write data in source tree...)
+local tmp = he.ptmp('hezen')
+if hefs.isdir(tmp) then hefs.rmdirs(tmp) end
+assert(hefs.mkdir(tmp))
+assert(hefs.isdir(tmp))
+
+local k = ("k"):rep(32)
+local fni = tmp .. '/f.in'
+local fno = tmp .. '/f.out'
+local fno2 = tmp .. '/f.out2'
+local p = "hello"
+he.fput(fni, p)
+assert(lz.encrypt_file(k, fni, fno))
+assert(lz.decrypt_file(k, fno, fno2))
+local p2 = he.fget(fno2)
+assert(p == p2)
+
+--cleanup test dir and files
+hefs.rmdirs(tmp) 
+
