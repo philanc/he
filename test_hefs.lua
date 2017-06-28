@@ -16,7 +16,7 @@ local sep, resep = he.sep, he.resep
 --
 local test_tmpdir
 -- make a tmp dir (dont write data in source tree...)
-local tmp = he.ptmp('hxfs')
+local tmp = he.ptmp('hefs')
 if hefs.isdir(tmp) then 
 	hefs.rmdirs(tmp) 
 end
@@ -53,5 +53,4 @@ assert(hefs.currentdir() == curdir)
 --cleanup test dir and files
 hefs.rmdirs(tmp) 
 
-------------------------------------------------------------------------
-return true
+

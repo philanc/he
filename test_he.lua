@@ -1,15 +1,12 @@
 -- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 
-do -- he core unit tests
-
---~ print(arg[-1], arg[0])
 
 local he = require 'he'
 assert(he)
 
 -- make sure we test the correct version
-assert(he.VERSION:match("^he095,"), "bad he version")
+assert(he.VERSION:match("^he096,"), "bad he version")
 
 -- check that _G and string are not extended
 assert(not _G.he)
@@ -289,9 +286,8 @@ assert(he.fileext("/de.f/") == "")
 -- isabspath
 assert(he.isabspath "/")
 assert(he.isabspath "/abc/d")
-
-assert(he.windows and he.isabspath "f:/abc/d" or not he.isabspath "f:/abc/d")
-assert(he.windows and he.isabspath "F:/abc/d" or not he.isabspath "F:/abc/d")
+assert(he.isabspath "f:/abc/d")
+assert(he.isabspath "F:/abc/d")
 assert(not he.isabspath "")
 assert(not he.isabspath "abc/d")
 assert(not he.isabspath "f:abc/d")
@@ -338,10 +334,3 @@ os.remove(fn)
 
 
 
-------------------------------------------------------------------------
---~ pp(he)
-
-end -- test_he
-
-
-------------------------------------------------------------------------
