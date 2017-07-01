@@ -18,6 +18,9 @@ local spack, sunpack = string.pack, string.unpack
 
 local app, concat = table.insert, table.concat
 
+local tmpname = os.tmpname  
+	-- check it generates an abs path also on windows
+
 ------------------------------------------------------------------------
 
 local function execute2(cmd, strin)
@@ -26,9 +29,8 @@ local function execute2(cmd, strin)
 	-- the 3 os.execute() return values
 	-- strin is optional. If not provided, no stdin redirection
 	-- is performed.
-	local tmpdir = he.tmpdir()
-	local tmpin = tmpdir .. os.tmpname()
-	local tmpout = tmpdir .. os.tmpname()
+	local tmpin = tmpname()
+	local tmpout = tmpname()
 	local cmd2
 	if strin then
 		he.fput(tmpin, strin)
@@ -48,10 +50,9 @@ local function execute3(cmd, strin)
 	-- and stderr as strings in addition to the 3 os.execute() return values
 	-- strin is optional. If not provided, no stdin redirection
 	-- is performed.
-	local tmpdir = he.tmpdir()
-	local tmpin = tmpdir .. os.tmpname()
-	local tmpout = tmpdir .. os.tmpname()
-	local tmperr = tmpdir .. os.tmpname()
+	local tmpin = tmpname()
+	local tmpout = tmpname()
+	local tmperr = tmpname()
 	local cmd3
 	if strin then
 		he.fput(tmpin, strin)
@@ -59,7 +60,6 @@ local function execute3(cmd, strin)
 	else 
 		cmd3 = strf("( %s ) >%s 2>%s", cmd, tmpout, tmperr)
 	end
---~ 	print(cmd3)
 	local succ, exit, status = os.execute(cmd3)
 	local strout = he.fget(tmpout)
 	local strerr = he.fget(tmperr)
@@ -82,15 +82,16 @@ local function exec(cmd, strin)
 	-- convenience function. execute a command (with execute2())
 	-- on success, return the stdout
 	-- on failure, return nil, msg
-	-- msg is a status line concatenated to stdout/stderr
-	-- status line is <exit>: <status code or signal number><NL>
+	-- msg is "<status>. <stdout/stderr>"
+	-- <status> is <exit>: <status code or signal number>
 	-- <exit> is either "exit" or "signal", as returned by os.execute()
 	-- strin is optional (see execute2())
 	local succ, exit, status, strout = execute2(cmd, strin)
 	if succ then return strout end
-	return nil, strf("%s: %s\n%s", exit, tostring(status), strout)
+	return nil, strf("%s: %s. %s", exit, tostring(status), strout)
 end
 
+-- exit: 127. sh: UNKNOWN: command not found
 
 
 
@@ -99,6 +100,7 @@ end
 return {
 	execute2 = execute2,
 	execute3 = execute3,
+	lines = lines,
 	exec = exec,
 }
 
