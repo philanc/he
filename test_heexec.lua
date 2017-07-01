@@ -23,7 +23,7 @@ he.fput("fail.lua", [[
 	os.exit(2)
 	]])
 
-local r, r2, msg, sin, sout, serr, e, c, t, t2
+local r, msg, sin, sout, serr, e, c
 
 -- exec
 
