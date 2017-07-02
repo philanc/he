@@ -1,4 +1,4 @@
--- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2017  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 
 local function test(mod)
@@ -11,7 +11,7 @@ test "he"
 test "hefs"
 test "hecsv"
 test "hezen"
---~ test "henacl"
+test "henacl"
 test "hegetopt"
 test "heserial"
 test "hezip"

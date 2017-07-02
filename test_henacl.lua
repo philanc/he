@@ -1,5 +1,19 @@
 
 local he = require "he"
+
+-- a nacl C library may not be available. If not, skip the test.
+local luatweetnacl, tweetnacl
+luatweetnacl= pcall(require, "luatweetnacl")
+if luatweetnacl then goto available end
+ltweetnacl = pcall(require, "tweetnacl")
+if tweetnacl then goto available end
+-- no tweet nacl library available (maybe a recent slua)
+print("-- test_henacl:  no nacl library available")
+goto done
+
+
+::available::
+
 local henacl = require "henacl"
 
 local stx, xts = he.stohex, he.hextos
@@ -100,6 +114,8 @@ assert(#signedmsg == #msg + 64)
 checkmsg, r = henacl.sign_open(signedmsg, aspk)
 if r then print(r) end
 assert(checkmsg == msg)
+
+::done::
 
 
 
