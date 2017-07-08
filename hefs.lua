@@ -3,7 +3,7 @@
 
 --[[ 
 
-hefs - file system functions (path, file, directory ...) based on lfs
+=== hefs - file system functions (path, file, directory ...) based on lfs
 
 pathname arguments are assumed to use Unix separators ('/')
 pathname handling functions defined in module 'he'.

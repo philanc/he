@@ -2,11 +2,12 @@
 
 
 --[[
-heserial - serialize lua values 
-      (booleans, numbers, strings and simple tables and lists)
- 
-handle only simple tables ie. tables where keys and values are only 
-booleans, numbers, strings and simple tables, and which contains no cycle.
+
+=== heserial - serialize lua values 
+
+handle only booleans, numbers, strings and simple tables ie. tables 
+where keys and values are only booleans, numbers, strings and 
+simple tables, and which contains no cycle.
 
 it supports also lists (created with the he.list class constructor)
 

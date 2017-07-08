@@ -1,7 +1,9 @@
 -- Copyright (c) 2017  Phil Leblanc  -- see LICENSE file
 
-------------------------------------------------------------------------y
---[[	he utility module 
+------------------------------------------------------------------------
+--[[	
+
+=== he utility module 
 
 content:
 
@@ -739,6 +741,16 @@ he.newline = he.windows and '\r\n' or '\n'
 function he.tmpdir()
 	return he.windows and he.pnorm(os.getenv('TMP')) 
 		or os.getenv('TMP') or '/tmp'
+end
+
+function he.tmpname()
+	-- return an absolute path for a temp file
+	if he.windows then
+		-- on windows, os.tmpname returns smtg like "\sl5s.3"
+		return he.pnorm(he.tmpdir() .. os.tmpname())
+	else
+		return os.tmpname()
+	end
 end
 
 function he.ptmp(name) 

@@ -3,7 +3,7 @@
 
 --[[ 
 
-hezen - complement luazen C lib
+=== hezen - complement luazen C lib
 
   encrypt_stream()     -- encrypt/decrypt files given open stream handles
   decrypt stream()     -- for input and output files

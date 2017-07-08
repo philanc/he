@@ -3,7 +3,7 @@
 ------------------------------------------------------------------------
 --[[ 
 
-msock - a low level tcp socket interface
+=== msock - a low level tcp socket interface
 
 requires LuaSocket on Windows and minisock on linux
 

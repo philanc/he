@@ -1,8 +1,14 @@
+--[[
 
--- hezen / luazen unit tests
+=== test_hezen
 
--- updated for luazen-0.9 ("norx")
---    removed rabbit, sha1
+hezen / luazen unit tests
+-- updated for luazen-0.8 ("norx")
+-- removed rabbit, sha1
+
+]]
+
+
 
 local he = require "he"
 local lz = require "hezen"

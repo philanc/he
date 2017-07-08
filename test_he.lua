@@ -1,6 +1,11 @@
 -- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
+--[[
 
+=== test_he
+
+
+]]
 
 local he = require 'he'
 assert(he)

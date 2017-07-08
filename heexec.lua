@@ -1,6 +1,8 @@
--- Copyright (c) 2016  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2017  Phil Leblanc  -- see LICENSE file
 
---[[ heexec module
+--[[ 
+
+=== heexec module
 
 Complement os.execute() - (poor man's popen3, popen4)
 
@@ -18,8 +20,7 @@ local spack, sunpack = string.pack, string.unpack
 
 local app, concat = table.insert, table.concat
 
-local tmpname = os.tmpname  
-	-- check it generates an abs path also on windows
+local tmpname = he.tmpname  
 
 ------------------------------------------------------------------------
 

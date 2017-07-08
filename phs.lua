@@ -3,8 +3,9 @@
 ------------------------------------------------------------------------
 --[[ 
 
-phs - a tiny HTTP server
+=== phs - a tiny HTTP server
 
+based on msock socket interface.
 
 ]]
 

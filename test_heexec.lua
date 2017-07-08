@@ -1,5 +1,9 @@
+--[[
 
--- heexec unit tests
+=== test_heexec
+
+
+]]
 
 local he = require "he"
 local hefs = require 'hefs'
@@ -28,7 +32,7 @@ local r, msg, sin, sout, serr, e, c
 -- exec
 
 r, msg = heexec.exec("lua succ.lua", "aaa")
---~ print('['..r..']')
+-- print('['..(r or "")..']', msg)
 assert(r == "out:aaa")
 assert(msg == nil)
 

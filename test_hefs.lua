@@ -1,7 +1,12 @@
 -- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 
--- hefs unit tests
+--[[
+
+=== test_hefs
+
+
+]]
 
 local he = require "he"
 local hefs = require "hefs"

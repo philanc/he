@@ -3,7 +3,7 @@
 ------------------------------------------------------------------------
 --[[ 
 
-stx - minimal itext / items handling
+=== stx - minimal itext / items handling
 
 
 

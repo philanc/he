@@ -1,7 +1,12 @@
 -- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 
--- test_hezip -  zip wrapper unit tests
+--[[
+
+=== test_hezip -  zip wrapper unit tests
+
+
+]]
 
 local he = require 'he'
 local hefs = require 'hefs'

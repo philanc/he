@@ -3,7 +3,7 @@
 
 --[[ 
 
-henacl - complement the luatweetnacl C binding to the NaCl crypto library
+=== henacl - complement the luatweetnacl C binding to the NaCl crypto library
 
 -- some constants
 
