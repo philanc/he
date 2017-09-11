@@ -325,13 +325,13 @@ if he.windows then
 --	print('Platform is Windows.')
 	x = he.shell('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
 	assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
-	x = he.shlines('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
+	x = he.cmdlines('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
 	assert(he.endswith(x[1], 'he_test_file.txt'))
 else -- assume linux
 --	 print('Platform is Linux.')
 	x = he.shell('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
 	assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
-	x = he.shlines('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
+	x = he.cmdlines('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
 	assert(he.endswith(x[1], 'he_test_file.txt'))
 end -- if 
 

@@ -112,21 +112,6 @@ end
 
 -- exit: 127. sh: UNKNOWN: command not found
 
-local function shcmd(cmd)
-	-- wrap he.shell
-	-- redirect stderr to stdin
-	-- *** => cmd should not include redirections ***
-	-- return nil, stderr in case of error (status not 0)
-	cmd = cmd .. " 2>&1 " -- should work on unix and recent windows (win7?)
-	local r, m = he.shell(cmd)
-	if r and (m ~= 0) then 
-		m = r; r = nil 
-	elseif m == 0 then
-		m = nil
-	end
-	return r, m
-end
-
 	
 ------------------------------------------------------------------------
 --[[  zip, unzip, ziplist
@@ -165,7 +150,7 @@ local function reformat_ziplines(ziplines)
 end
 
 local function ziplist(zipfn)
-    local zl = he.shlines('unzip -ZTs '..zipfn)
+    local zl = he.cmdlines('unzip -ZTs '..zipfn)
     if #zl < 2 then return nil end
     local nzl = reformat_ziplines(zl)
     return nzl
@@ -174,16 +159,28 @@ end
 local function zip(fn, zipfn)
     zipfn = zipfn or fn..'.zip'
 --~     ret = os.execute(string.format('zip -r %s %s', zipfn, fn))
-    local ret = he.shell(string.format('zip -q -r %s %s', zipfn, fn))
-    return ret
+    return he.cmd(string.format('zip -q -r %s %s', zipfn, fn))
 end
 
 local function unzip(zipfn, dirfn)
 	-- extract in dirfn or current dir if dirfn is not specified
 	dirfn = dirfn or '.'
-    local ret = he.shell(string.format('unzip -d %s %s', dirfn, zipfn))
-    return ret
+    return he.cmd(string.format('unzip -d %s %s', dirfn, zipfn))
 end
+
+local function tar(fn, zipfn)
+    zipfn = zipfn or fn..'.tar'
+--~     ret = os.execute(string.format('zip -r %s %s', zipfn, fn))
+--~     return he.shell(string.format('tar cf %s %s', zipfn, fn))
+    return he.cmd(string.format('tar cf %s %s', zipfn, fn))
+end
+
+
+local function tartos(fn)
+    return he.cmd(string.format('tar cf - %s', fn))
+end
+
+
 
 ------------------------------------------------------------------------
 -- find
@@ -191,14 +188,22 @@ end
 local flist_cmd = 
 	'find %s -type f -printf "%%TY%%Tm%%Td_%%TH%%TM\t%%s\t%%p\n" '
 
-local function flist(dir)
-	return shcmd(strf(flist_cmd, dir))
+local function findlist(dir)
+	local ll, errmsg, status = he.cmdlines(strf(flist_cmd, dir))
+	if not ll then return nil, errmsg, status end
+	local mod, size, name
+	local rl = list()
+	for i, l in ipairs(ll) do
+		mod, size, name = l:match("^(%S+)%s+(%d+)%s+(.+)$")
+		rl:insert({mod, tonumber(size), name})
+	end
+	return rl
 end
 
 local function findfiles(dir)
 	local cmd = 'find %s -type f '
-	r, m = shcmd(strf(cmd, dir))
-	return r, m
+	r, msg, status = he.cmdlines(strf(cmd, dir))
+	return r, msg, status
 end
 
 
@@ -206,28 +211,10 @@ local function finddirs(dir)
 	-- find depth-first - makes it easier to delete a file tree
 	-- and can be easily sorted for a more natural order
 	local cmd = 'find %s -type d -depth '
-	r, m = shcmd(strf(cmd, dir))
-	return r, m
+	r, msg, status = he.cmdlines(strf(cmd, dir))
+	return r, msg, status
 end
 
-
--- [[
-
-print(
---~ 111 .. 
---~ zip('galzook')
---~ flist'/root/conf'
---~ flist'he.luaxzx'
---~ flist'he.luaxzx'
---~ flist'he.lua'
---~ flist'.'
---~ finddirs'..'
-findfiles'.'
---~ .. 222
-)
-
-
--- ]]
 
 ------------------------------------------------------------------------
 return {
@@ -240,7 +227,10 @@ return {
 	unzip = unzip, 
 	ziplist = ziplist, 
 	--
-	flist = flist,
+	findlist = findlist,
+	findfiles = findfiles,
+	finddirs = finddirs,
+	--
 	
 }
 

@@ -687,20 +687,53 @@ function he.shell(cmd)
 	return s, (exit=='signal' and status+128 or status)
 end
 
-function he.shlines(cmd) 
-	-- executes cmd, return stdout as a list of lines
-	-- (remove empty lines at beginning and end of cmd output)
-	local s, status = he.shell(cmd)
-	if not s then return nil, status end
-	return he.lines(he.stripnl(s)), status
-end
+function he.cmd(cmd)
+	-- wrap he.shell
+	-- redirect stderr to stdin
+	-- *** => cmd should not include redirections ***
+	-- return nil, stderr in case of error (status not 0)
+	cmd = cmd .. " 2>&1 " -- should work on unix and recent windows (win7?)
+	local r, m = he.shell(cmd)
+	if r and (m ~= 0) then 
+		m = r; r = nil 
+	elseif m == 0 then
+		m = nil
+	end
+	return r, m
+end --cmd()
 
+function he.cmdlines(cmd)
+	-- wrap os.popen
+	-- return command output as a list of lines
+	-- return nil, stderr, status in case of error (status not 0)
+	--
+	cmd = cmd .. " 2>&1 " -- should work on recent windows (xp,7?)
+	local f, m = io.popen(cmd) 
+	if not f then return nil, m end
+	local linelist = list()
+	local s
+	while true do
+		s, m = f:read()
+		if not s then break end
+		linelist:insert(s)
+	end
+	local succ, exit, status = f:close()
+	-- same status convention as he.shell():
+	-- if exit=='signal', return 128 + signal number
+	status = (exit=='signal' and status+128 or status)
+	if status ~= 0 then
+		m = linelist:concat('\n') -- in case of multi-line error msg
+		return nil, m, status
+	else
+		return linelist
+	end
+end --cmdlines()
+	
 function he.escape_sh(s)  
 	-- escape posix shell special chars: [ ] ( ) ' " \
 	-- (works for unix, not windows...)
 	return string.gsub(s, "([ %(%)%\\%[%]\"'])", "\\%1")
 end
-
 
 function he.source_line(level)
 	-- return <sourcefilename>:<current line>

@@ -51,7 +51,7 @@ local function reformat_ziplines(ziplines)
 end
 
 function hezip.ziplist(zipfn)
-    local zl = he.shlines('unzip -ZTs '..zipfn)
+    local zl = he.cmdlines('unzip -ZTs '..zipfn)
     if #zl < 2 then return nil end
     local nzl = reformat_ziplines(zl)
     return nzl
