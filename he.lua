@@ -66,7 +66,8 @@ content:
   isodate		convert time to ISO date representation
   iso2time		parse ISO date and return a time (sec since epoch)
   shell			execute a shell command, return stdout as a string
-  shlines		execute a shell command, return stdout as a list of lines
+  cmd           same as shell(), but return also stderr as an error msg
+  cmdlines      same as cmd(), but return stdout as a list of lines 
   escape_sh		escape posix shell special chars
   source_line   return the current file and line number
   exitf			write a formatted message and exit from the program
@@ -95,7 +96,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he096, 170623'
+he.VERSION = 'he097, 170910'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
