@@ -779,9 +779,13 @@ end
 
 function he.tmpname()
 	-- return an absolute path for a temp file
+	--
+	-- on windows, slua 5.3.3 compiled with mingw
+	-- os.tmpname returns smtg like "\sl5s.3"	
+	-- with lua 5.3.4 compiled with VS2014/VC, 
+	-- os.tmpname returns an absolute path like "C:\...\sl5s.3"	
 	if he.windows then
-		-- on windows, os.tmpname returns smtg like "\sl5s.3"
-		return he.pnorm(he.tmpdir() .. os.tmpname())
+		return he.tmpdir() .. '/' .. he.basename(he.pnorm(os.tmpname()))
 	else
 		return os.tmpname()
 	end

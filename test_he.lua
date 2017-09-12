@@ -11,7 +11,8 @@ local he = require 'he'
 assert(he)
 
 -- make sure we test the correct version
-assert(he.VERSION:match("^he096,"), "bad he version")
+--~ assert(he.VERSION:match("^he096,"), "bad he version")
+assert(he.VERSION:match("^he097,"), "bad he version")
 
 -- check that _G and string are not extended
 assert(not _G.he)

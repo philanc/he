@@ -1,4 +1,5 @@
 -- Copyright (c) 2017  Phil Leblanc  -- see LICENSE file
+------------------------------------------------------------------------
 
 --[[ 
 
@@ -186,11 +187,24 @@ end
 -- find
 
 local flist_cmd = 
-	'find %s -type f -printf "%%TY%%Tm%%Td_%%TH%%TM\t%%s\t%%p\n" '
+	'find %s -type f -printf "%%TY%%Tm%%Td_%%TH%%TM\t%%s\t%%p\\n" '
 
+
+	
+	
+local function findlist0(dir)
+	local ll, errmsg, status = he.cmd(strf(flist_cmd, dir))
+--~ 	local ll, errmsg, status = os.execute(strf(flist_cmd, dir))
+	return ll, errmsg, status
+end
+	
+	
 local function findlist(dir)
 	local ll, errmsg, status = he.cmdlines(strf(flist_cmd, dir))
 	if not ll then return nil, errmsg, status end
+--~ 	he.pp(ll)
+	if he.windows then ll = ll:map(he.pnorm) end
+--~ 	he.pp(ll)
 	local mod, size, name
 	local rl = list()
 	for i, l in ipairs(ll) do
@@ -203,6 +217,7 @@ end
 local function findfiles(dir)
 	local cmd = 'find %s -type f '
 	r, msg, status = he.cmdlines(strf(cmd, dir))
+	if r and he.windows then r = r:map(he.pnorm) end
 	return r, msg, status
 end
 
@@ -212,6 +227,7 @@ local function finddirs(dir)
 	-- and can be easily sorted for a more natural order
 	local cmd = 'find %s -type d -depth '
 	r, msg, status = he.cmdlines(strf(cmd, dir))
+	if r and he.windows then r = r:map(he.pnorm) end
 	return r, msg, status
 end
 
@@ -227,10 +243,10 @@ return {
 	unzip = unzip, 
 	ziplist = ziplist, 
 	--
+	findlist0 = findlist0,
 	findlist = findlist,
 	findfiles = findfiles,
 	finddirs = finddirs,
 	--
 	
 }
-

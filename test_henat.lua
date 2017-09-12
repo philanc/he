@@ -1,6 +1,7 @@
 -- Copyright (c) 2015  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 
+
 --[[
 
 === test_henat  -  OS native commands wrapper unit tests
@@ -15,7 +16,6 @@ local henat = require 'henat'
 --~ he.interactive()
 
 local strip = he.strip
---~ local hefs = he.fs
 local sep, resep = hefs.sep, hefs.resep
 local win = test_windows
 
@@ -58,17 +58,72 @@ assert(hefs.fsize(he.pnorm('d3/d/bef')) == 9)
 
 --~ pp(henat.findlist('.'):map(he.l2s))
 rl = henat.findlist('.')
+-- must sort because find order different on windows...
+rl:sort(function(a, b) return he.cmpany(a[3], b[3]) end)
+--~ pp(rl:map(he.l2s))
 --~ print(122, rl[2][2])
 --~ print(123, rl[2][3])
 assert(rl[2][2] == 8)
 assert(rl[2][3] == "./d/ab")
 
 rl = henat.findfiles('.')
+rl:sort(he.cmpany) -- sort for windows...
 assert( rl[3] == "./d/bef" )
 
 rl = henat.finddirs('.')
 assert( rl[2] == "./d3/d")
---
 
+-- test exec, execute2, execute3
+
+he.fput('a', 'hello Alice')
+he.fput('b', 'hello Bob')
+
+he.fput("succ.lua", [[
+	a = io.stdin:read()
+	io.stdout:write('out:' .. a)
+	]])
+he.fput("fail.lua", [[
+	io.stderr:write("error message")
+	os.exit(2)
+	]])
+
+local r, msg, sin, sout, serr, e, c
+
+-- exec
+
+r, msg = henat.exec("lua succ.lua", "aaa")
+--~ print('['..(r or "")..']', msg)
+assert(r == "out:aaa")
+assert(msg == nil)
+
+r, msg = henat.exec("lua fail.lua")
+--~ print('['..msg..']')
+assert(r == nil)
+assert(msg == "exit: 2. error message")
+
+-- execute2
+
+r, e, c, sout, serr = henat.execute2("lua succ.lua", "aaa")
+assert(r == true and e == "exit" and c == 0)
+assert(sout == "out:aaa") 
+
+r, e, c, sout, serr = henat.execute2("lua fail.lua", "aaa")
+assert(r == nil and e == "exit" and c == 2)
+assert(sout == "error message") 
+
+-- execute3
+
+r, e, c, sout, serr = henat.execute3("lua succ.lua", "aaa")
+assert(r == true and e == "exit" and c == 0)
+assert(sout == "out:aaa") 
+assert(serr == "")
+
+r, e, c, sout, serr = henat.execute3("lua fail.lua", "aaa")
+assert(r == nil and e == "exit" and c == 2)
+assert(sout == "") 
+assert(serr == "error message")
+
+-- test cleanup
 hefs.popd()
 hefs.rmdirs(tmp)
+
