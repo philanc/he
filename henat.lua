@@ -189,16 +189,6 @@ end
 local flist_cmd = 
 	'find %s -type f -printf "%%TY%%Tm%%Td_%%TH%%TM\t%%s\t%%p\\n" '
 
-
-	
-	
-local function findlist0(dir)
-	local ll, errmsg, status = he.cmd(strf(flist_cmd, dir))
---~ 	local ll, errmsg, status = os.execute(strf(flist_cmd, dir))
-	return ll, errmsg, status
-end
-	
-	
 local function findlist(dir)
 	local ll, errmsg, status = he.cmdlines(strf(flist_cmd, dir))
 	if not ll then return nil, errmsg, status end
