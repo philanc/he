@@ -9,7 +9,7 @@ local pcrypt_VERSION = "pcrypt 0.3"
 ------------------------------------------------------------------------
 -- local definitions
 
-local lz = require "lz"
+local lz = require "luazen"
 
 local strf = string.format
 
