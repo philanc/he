@@ -130,14 +130,21 @@ else
 					end--if	
 				end--while reading a line
 			else -- read n bytes
-				bt = { buf:sub(bi) }
-				nr = #buf
-				print('N, NR', n, nr)
+				local nbs -- "n bytes string" -- expected result
+				-- rest to read in buf:
+				buf = buf:sub(bi)
+				bi = 1
+				nr = #buf -- available bytes in bt
+				-- here, we have not enough bytes in buf
+				bt = { buf } -- collect more in table bt
 				while true do
 					if n <= nr then -- enough bytes in bt
-						--FIXME: eats more than n bytes
-						-- ok for http but not general purpose...
-						return table.concat(bt)
+						buf = table.concat(bt)
+						nbs = buf:sub(1, n)
+						-- keep not needed bytes in buf
+						buf = buf:sub(n+1) 				
+						bi = 1 -- start of unread bytes in buf
+						return nbs
 					else -- not enough, read more
 						local b, msg = msock.read(fd)
 						if not b then return nil, msg end
