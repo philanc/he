@@ -72,11 +72,19 @@ if he.windows then
 
 	msock = {}
 	msock.bind = socket.bind
+	msock.connect = socket.connect
 	function msock.accept(so) return so:accept() end
 	function msock.getserverinfo(so) return so:getsockname() end
 	function msock.getclientinfo(so) return so:getpeername() end
 	function msock.write(so, data) return so:send(data) end
-	function msock.bufreader(so) return function(n) return so:receive(n) end end
+	function msock.read(so, n) -- read n bytes
+		assert(type(n) == "number")
+		return so:receive(n) 
+	end
+	function msock.bufreader(so) 
+		return function(n) return so:receive(n) end
+	end
+	function msock.msleep(time_ms) return socket.sleep(time_ms / 1000) end
 	function msock.close(so) return so:close() end
 
 else 
