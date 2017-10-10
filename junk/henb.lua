@@ -8,9 +8,6 @@
 ]]
 
 
--- require "heap"
-
-
 local he = require "he"
 local hezen = require "hezen"
 local msock = require "msock"
@@ -36,25 +33,20 @@ end
 
 local spack, sunpack = string.pack, string.unpack
 local strf = string.format
-local function log(...) print(he.isodate():sub(10), ...) end
+
+local verbose = false
+
+local log = function(...) 
+	if verbose then print(he.isodate():sub(10), ...) end
+end
+
 
 ------------------------------------------------------------------------
 -- common definitions (client and server)
 
 local function hash(blob) 
-	return he.stohex(hezen.blake2b(blob):sub(1, 16))
+	return he.stohex(hezen.blake2b(blob):sub(1, 32))
 end
-
---~ local function read(fd, n)
---~ 	-- read n bytes from fd 
---~ 	-- return read bytes or nil, errmsg
---~ 	-- (on Windows with luasocket, fd is a socket object)
---~ 	if he.windows then
---~ 		return fd:receive(n)
---~ 	else
---~ 		return msock.read(fd, n)
---~ 	end
---~ end--read()
 
 local options = {  -- default options for the server
 	bindhost = "localhost",  -- server bind address
@@ -77,7 +69,7 @@ local function receive(fd)
 	local read = msock.bufreader(fd)
 	hd, msg = read(5)
 	if not hd then return nil, msg end
-	print(he.stohex(hd))
+--~ 	print(he.stohex(hd))
 	assert(#hd == 5)
 	code, bln = sunpack("<BI4", hd)
 	if bln > 0 then
@@ -109,15 +101,19 @@ local status = {
 ------------------------------------------------------------------------
 -- client definitions
 
+default_options = {
+	host = "localhost",     -- server bind address
+	port = 3091,            -- server port
+}
+
 local function cmd(code, blob, opt)
-	-- send code, blob to server
-	-- return resp blob, or true if none, or nil, code or err msg
-	opt = opt or options
+	-- send code, blob to server (server response is (rcode, rblob)
+	-- return rblob, or nil, rcode
+	opt = opt or default_options
 	local fd, msg = msock.connect(opt.host, opt.port)
 	if not fd then return nil, msg end
 	send(fd, code, blob)
 	local rcode, rblob = receive(fd)
---~ 	print(111, respcode, respblob and #respblob)
 	if rcode == 0 then
 		return rblob
 	else
@@ -135,7 +131,7 @@ end
 
 local function put(blob, opt)
 	local h = hash(blob)
-	print('put:hash', h)
+--~ 	print('put:hash', h)
 	local b, rcode = cmd(cmds.PUT, blob, opt)
 	if not b then
 		return nil, rcode
@@ -161,75 +157,92 @@ end
 ------------------------------------------------------------------------
 -- server definitions
 
-local function serverput(blob)
-	local h = hash(blob)
-	he.fput(h, blob)
-	return status.OK, h
-end
+default_server = {  
+	bindhost = "localhost", -- server bind address
+	host = "localhost",     -- server bind address
+	port = 3091,            -- server port
+	exit_server = false, -- set this to true to request the server to exit
+	--
+	log = log,
+	--
+	----------------------------
+	-- server operation handlers
+	-- handler sig: function(server, blob) return rcode, rblob
+	[cmds.NOP] = function(server, blob) return status.OK, "" end,
+	[cmds.EXIT] = function(server, blob) 
+		server.log("exit requested")
+		server.exit_server = true
+		return status.OK, ""
+	end,
+	[cmds.GET] = function(server, blob)
+		local rblob = he.fget(blob)
+		if rblob then
+			return status.OK, rblob
+		else
+			return status.NOTFOUND, ""
+		end
+	end,
+	[cmds.PUT] = function(server, blob)	
+		local h = hash(blob)
+		he.fput(h, blob)
+		return status.OK, h
+	end,
+	----------------------------
 
-local function serverget(bh)
-	local rblob = he.fget(bh)
-	if rblob then
-		return status.OK, rblob
-	else
-		return status.NOTFOUND, ""
-	end
-end
+	} --server
 
-local function serve(opt)
-	opt = opt or options
-	--handler table --sig: ht[code](blob, [code]) => respcode, respblob
-	local ht = opt.ht or {}
-	local server, client, msg, code, bln, blob
-	local rcode, rblob
-	local server = assert(msock.bind(opt.bindhost, opt.port))
-	log(strf("phs: bound to %s %d", msock.getserverinfo(server)))
+local function serve(server)
+	server = server or default_server
+	local sso, cso -- server socket, client socket
+	local msg, code, bln, blob, rcode, rblob
+	local handler
+	local sso = assert(msock.bind(server.bindhost, server.port))
+	server.log(strf("phs: bound to %s %d", msock.getserverinfo(sso)))
 	while true do
-		if opt.exit_server then
-			msock.close(client)
-			msock.close(server)
+		if server.exit_server then
+			msock.close(cso)
+			msock.close(sso)
 			return 
 		end
-		client, msg = msock.accept(server)
-		if not client then log("accept error", msg); goto continue end
-		local vars = {} -- request variables (will be passed to the handler)
-		-- log info about the client
-		vars.client_ip, vars.client_port = msock.getclientinfo(client)
-		log("serve client", vars.client_ip, vars.client_port)
-		code, blob = receive(client)
-		if not code then log("no code")
-		elseif code == cmds.NOP then
-			send(client, status.OK, "")
-		elseif code == cmds.PUT then
-			rcode, rblob = serverput(blob)
-			send(client, rcode, rblob)
-		elseif code == cmds.GET then
-			rcode, rblob = serverget(blob)
-			send(client, rcode, rblob)
-		elseif code == cmds.EXIT then -- exit_server
-			log("exit requested")
-			opt.exit_server = true
-			send(client, status.OK, "") --send ok
-		else 
-			send(client, status.UNKNOWN, "") -- unknown code
+		cso, msg = msock.accept(sso)
+		if not cso then log("accept error", msg); goto continue end
+		local cso_ip, cso_port = msock.getclientinfo(cso)
+		server.log("serve client", cso_ip, cso_port)
+		code, blob = receive(cso)
+		if not code then server.log("no code"); goto close end
+		handler = server[code]
+		if not handler then
+			send(cso, status.UNKNOWN, "") -- unknown code
+		else
+			rcode, rblob = handler(server, blob)
+			send(cso, rcode, rblob)
 		end
-		msock.close(client)
+		::close::
+		msock.close(cso)
 		::continue::
 	end--while
 end--serve()
+------------------------------------------------------------------------
 
+
+
+------------------------------------------------------------------------
 return {
-	options = options,
-	cmds = cmds,
 	status = status,
+	verbose = verbose,
 	--
+	-- client
 	nop = nop,
 	cmd = cmd,
 	put = put,
 	get = get,
 	exit_server = exit_server,
+	default_options = default_options,
 	--
+	-- server
+	default_server = default_server,
 	serve = serve,
 }
+
 
 
