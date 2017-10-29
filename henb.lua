@@ -3,14 +3,41 @@
 ------------------------------------------------------------------------
 --[[
 
-=== henb
+=== henb  v0.2
 
+171029  v0.2
+- simplification of the public interface
+- remove hash-based identification of blobs
 
+Client API:  ('opt' is "optional server options")
+
+get(bid, opt)  => blob or nil, err
+	return the blob associated with bid
+
+put(bid, blob, opt)  => ok or nil, err  
+	store a blob on server with name bid
+	fail if blob bid already exists
+
+uddate(bid, blob, opt)  => ok or nil, err  
+	store a blob on server with name bid
+	if blob bid already exists, the blob is replaced.
+
+del(bid, opt) => => ok or nil, err
+	delete blob with name bid
+
+nop(opt) => ok or nil, err  
+	do nothing (can be used to ping server)
+
+Server API:
+
+serve(server)
 
 
 
 
 ]]
+
+local VERSION = "0.2"
 
 
 local he = require "he"
@@ -32,51 +59,46 @@ local quiet = function(...) return  end
 ------------------------------------------------------------------------
 -- common definitions (client and server)
 
-local options = {  -- default options for the server
-	bindhost = "localhost",  -- server bind address
-	host = "localhost",      -- server address for the client
-	port = 3091,             -- server port
-	exit_server = false, -- set this to true to request the server to exit
-	                     -- (see serve() loop)
-}
-
-
-local function hash(blob) 
-	-- if hash() changes, MUST also change hashlen below.
-	return he.stohex(hezen.blake2b(blob):sub(1, 32))
-end
-
-local hashlen = 64  -- MUST be equal to #hash(blob)
-
-local function send(so, code, blob)
-	blob = blob or ""
-	assert(code == code & 0xff) -- code must be one byte
-	return so:write(spack("<Bs4", code, blob))
+local function send(so, code, id, content)
+	content = content or ""
+	id = id or ""
+	assert(code == code & 0xff, "code must be one byte")
+	assert(#id <= 0xff, "id ln must be one byte")
+	local data = spack("<BBI4", code, #id, #content) -- 6 bytes
+	if id ~= "" then data = data .. id end
+	if content ~= "" then data = data .. content end
+	return so:write(data)
 end
 
 local function receive(so)
-	local hd, msg, code, bln, blob
-	hd, msg = so:read(5)
+	local hd, msg, code, idln, id, bln, blob
+	hd, msg = so:read(6)
 	if not hd then return nil, msg end
 --~ 	print(he.stohex(hd))
-	assert(#hd == 5)
-	code, bln = sunpack("<BI4", hd)
+	assert(#hd == 6)
+	code, idln, bln = sunpack("<BBI4", hd)
+	if idln > 0 then
+		id, msg = so:read(idln)
+		if not  id then return nil, 'read_id: ' .. msg end
+	else
+		id = ""
+	end
 	if bln > 0 then
 		blob, msg = so:read(bln)
-		if not  blob then return nil, msg end
+		if not  blob then return nil, 'read_blob: ' .. msg end
 	else
 		blob = ""
 	end
-	return code, blob
+	return code, id, blob
 end --receive()
 
 local cmds = {
 	NOP = 0,
 	GET = 1,
 	PUT = 2,
-	CHK = 3,
+	UPD = 3,
 	DEL = 4,
-	PUTID = 5,
+	CHK = 5,
 	--
 	EXIT = 0xff
 }
@@ -98,14 +120,16 @@ default_options = {
 	port = 3091,            -- server port
 }
 
-local function cmd(code, blob, opt)
+local function cmd(code, id, blob, opt)
 	-- send code, blob to server (server response is (rcode, rblob)
+	-- (id is not used in server responses)
 	-- return rblob, or nil, rcode
 	opt = opt or default_options
 	local so, msg = hesock.connect(opt.host, opt.port)
 	if not so then return nil, msg end
-	send(so, code, blob)
-	local rcode, rblob = receive(so)
+	send(so, code, id, blob)
+	local rcode, id, rblob = receive(so)
+	hesock.close(so)
 	if rcode == 0 then
 		return rblob
 	else
@@ -114,79 +138,37 @@ local function cmd(code, blob, opt)
 end--cmd
 
 local function nop(opt)
-	return cmd(cmds.NOP, "", opt)
+	return cmd(cmds.NOP, "",  "", opt)
 end--nop
 
 local function exit_server(opt)
-	return cmd(cmds.EXIT, "", opt)
+	return cmd(cmds.EXIT, "", "", opt)
 end
 
-local function put(blob, opt)
-	local h = hash(blob)
-	local b, rcode = cmd(cmds.PUT, blob, opt)
-	if not b then
-		return nil, rcode
-	elseif h ~= b then
-		return nil, status.BADHASH
-	end
-	return h
+local function put(bid, blob, opt)
+	return cmd(cmds.PUT, bid, blob, opt)
 end
 
-local function get(bh, opt)
-	-- get blob with hash bh
-	local b, rcode = cmd(cmds.GET, bh, opt)
-	if not b then
-		return nil, rcode
-	end
-	local h = hash(b)	
-	if h ~= bh then
-		return nil, status.BADHASH
-	end
-	return b
+local function update(bid, blob, opt)
+	return cmd(cmds.UPD, bid, blob, opt)
 end
 
-local function chk(bh, opt)
-	-- check blob identified by bh
-	-- return blob hash or nil, status.NOTFOUND
-	return cmd(cmds.CHK, bh, opt)
+local function get(bid, opt)
+	-- get blob with id 'bid'
+	return cmd(cmds.GET, bid, "", opt)
 end
-	
+
+local function chk(bid, opt)
+	-- check blob identified by bid
+	-- return blob ln or nil, status.NOTFOUND
+	local rblob, rcode = cmd(cmds.CHK, bid, "", opt)
+	if not rblob then return nil, rcode end
+	local bln, msg = sunpack("<I4", rblob)
+	return bln, msg
+end
 
 local function del(bh, opt)
-	local b, rcode = cmd(cmds.DEL, bh, opt)
-	if not b then
-		return nil, rcode
-	end
-	return true
-end
-
-local function putid(blob, bid, opt)
-	-- same as put, but blob on server is not identified by its hash but 
-	-- by the hash of an explicit identifier (an arbitratry name)
-	-- eg. putid("some blob content", "blob_name")
-	-- return the hash of the blob argument, or nil, statuscode
-	local h = hash(blob)
-	local hid = hash(bid)
-	blob = hid .. blob
-	local b, rcode = cmd(cmds.PUTID, blob, opt)
-	if not b then
-		return nil, rcode
-	elseif h ~= b then
-		return nil, status.BADHASH
-	end
-	return h
-end
-
-local function getid(bid, opt)
-	-- get blob with hash `hash(bid)`
-	-- eg.   putid("some blob content", "blob_name")
-	--       blob = getid("blob_name") -- here, blob == "some blob content"
-	local bh = hash(bid)
-	local b, rcode = cmd(cmds.GET, bh, opt)
-	if not b then
-		return nil, rcode
-	end
-	return b
+	return cmd(cmds.DEL, bh, opt)
 end
 
 ------------------------------------------------------------------------
@@ -220,20 +202,20 @@ default_server = {
 	
 	----------------------------
 	-- server operation handlers
-	-- handler sig: function(server, blob) return rcode, rblob
+	-- handler sig: function(server, id, blob) return rcode, rblob
 	--
-	[cmds.NOP] = function(server, blob) 
+	[cmds.NOP] = function(server, id, blob) 
 		return status.OK, "" 
 	end,
 
-	[cmds.EXIT] = function(server, blob) 
+	[cmds.EXIT] = function(server, id, blob) 
 		server.log("exit requested")
 		server.exit_server = true
 		return status.OK, ""
 	end,
 
-	[cmds.GET] = function(server, blob)
-		local rblob = server.sget(server, blob)
+	[cmds.GET] = function(server, id, blob)
+		local rblob = server.sget(server, id)
 		if rblob then
 			return status.OK, rblob
 		else
@@ -241,33 +223,23 @@ default_server = {
 		end
 	end,
 
-	[cmds.PUT] = function(server, blob)	
-		local h = hash(blob)
-		server.sput(server, h, blob)
-		return status.OK, h
+	[cmds.PUT] = function(server, id, blob)	
+		server.sput(server, id, blob)
+		return status.OK, ""
 	end,
 
-	[cmds.CHK] = function(server, blob)	
-		local b = server.sget(server, blob)
+	[cmds.CHK] = function(server, id, blob)	
+		local b = server.sget(server, id)
 		if not b then return status.NOTFOUND, "" end
-		local h = hash(b)
-		return status.OK, h
+		return status.OK, spack("<I4", #b)
 	end,
 
-	[cmds.DEL] = function(server, blob)	
-		local r, msg = server.sdel(server, blob)
+	[cmds.DEL] = function(server, id, blob)	
+		local r, msg = server.sdel(server, id)
 		if not r then 
 			server.log("del error:", msg)
 			return status.DELERR, "" end
 		return status.OK, ""
-	end,
-
-	[cmds.PUTID] = function(server, blob)
-		local hid = blob:sub(1, hashlen)
-		blob = blob:sub(hashlen + 1)
-		local h = hash(blob)
-		server.sput(server, hid, blob)
-		return status.OK, h
 	end,
 	----------------------------
 
@@ -276,7 +248,7 @@ default_server = {
 local function serve(server)
 	server = server or default_server
 	local sso, cso -- server socket, client socket
-	local msg, code, bln, blob, rcode, rblob
+	local msg, code, idln, id, bln, blob, rcode, rblob
 	local handler
 	local sso = assert(hesock.bind(server.bindhost, server.port))
 	server.log(strf("phs: bound to %s %d", hesock.getserverinfo(sso)))
@@ -290,14 +262,16 @@ local function serve(server)
 		if not cso then log("accept error", msg); goto continue end
 		local cso_ip, cso_port = hesock.getclientinfo(cso)
 		server.log("serve client", cso_ip, cso_port)
-		code, blob = receive(cso)
+		code, id, blob = receive(cso)
 		if not code then server.log("no code"); goto close end
 		handler = server[code]
 		if not handler then
 			send(cso, status.UNKNOWN, "") -- unknown code
 		else
-			rcode, rblob = handler(server, blob)
-			send(cso, rcode, rblob)
+--~ server.log("request code, id, bln: ", code, he.repr(id), #blob)
+			rcode, rblob = handler(server, id, blob)
+--~ server.log("response rcode, rblob: ", rcode, he.repr(rblob))
+			send(cso, rcode, "", rblob)
 		end
 		::close::
 		cso:close()
@@ -315,6 +289,7 @@ end--serve()
 
 ------------------------------------------------------------------------
 return {
+	VERSION = VERSION,
 	status = status,
 	log = log,
 	--
@@ -325,12 +300,8 @@ return {
 	get = get,
 	chk = chk,
 	del = del,
-	putid = putid,
-	getid = getid,
 	exit_server = exit_server,
 	default_options = default_options,
-	hash = hash,
-	hashlen = hashlen,
 	--
 	-- server
 	default_server = default_server,
