@@ -9,23 +9,24 @@
 - simplification of the public interface
 - remove hash-based identification of blobs
 
-Client API:  ('opt' is "optional server options")
+Client API
 
-get(bid, opt)  => blob or nil, err
+newclient([host, port])  => cli
+	create a new client object
+
+cli:get(bid)  => blob or nil, err
 	return the blob associated with bid
 
-put(bid, blob, opt)  => ok or nil, err  
+cli:put(bid, blob)  => ok or nil, err  
 	store a blob on server with name bid
-	fail if blob bid already exists
 
-uddate(bid, blob, opt)  => ok or nil, err  
-	store a blob on server with name bid
-	if blob bid already exists, the blob is replaced.
+cli:chk(bid) => bln or nil, err
+	return blob length if blob 'bid' exists, or nil, err
 
-del(bid, opt) => => ok or nil, err
+cli:del(bid) => ok or nil, err
 	delete blob with name bid
 
-nop(opt) => ok or nil, err  
+cli:nop() => ok or nil, err  
 	do nothing (can be used to ping server)
 
 Server API:
