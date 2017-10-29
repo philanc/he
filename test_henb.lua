@@ -13,42 +13,43 @@ else
 end
 --  ]==]
 
-local nb = require "henb"
+local henb = require "henb"
 --~ he.pp(nb)
 
 
-local blob, rblob, rcode, rmsg, h, ha, hb
+local cli, blob, rblob, rcode, rmsg, h, ha, hb
 
+cli = henb.newclient()
 
-rblob, rcode = nb.nop()
+rblob, rcode = cli:nop()
 assert(rblob == "" and rcode == nil)
 
-rblob, rcode = nb.cmd(123, "abcdef")
-assert(rblob == nil and rcode == nb.status.UNKNOWN)
+rblob, rcode = cli:cmd(123, "abcdef")
+assert(rblob == nil and rcode == henb.UNKNOWN)
 
-rblob, rcode = nb.put("ab", "abcdef")
+rblob, rcode = cli:put("ab", "abcdef")
 assert(rblob == "")
 
-rblob, rcode = nb.get("xyzzy")
-assert(rblob == nil and rcode == nb.status.NOTFOUND)
+rblob, rcode = cli:get("xyzzy")
+assert(rblob == nil and rcode == henb.NOTFOUND)
 
-rblob, rcode = nb.get("ab")
+rblob, rcode = cli:get("ab")
 assert(rblob == "abcdef" and rcode == nil)
 
-bln, rcode = nb.chk("ab")
+bln, rcode = cli:chk("ab")
 assert(bln == 6)
-bln, rcode = nb.chk("xyzzy")
-assert(bln == nil and rcode == nb.status.NOTFOUND)
+bln, rcode = cli:chk("xyzzy")
+assert(bln == nil and rcode == henb.NOTFOUND)
 
-rblob, rcode = nb.del("ab")
+rblob, rcode = cli:del("ab")
 assert(rblob == "")
-rblob, rcode = nb.get("ab")
-assert(rblob == nil and rcode == nb.status.NOTFOUND)
-rblob, rcode = nb.del("ab")
-assert(rblob == nil and rcode == nb.status.DELERR)
+rblob, rcode = cli:get("ab")
+assert(rblob == nil and rcode == henb.NOTFOUND)
+rblob, rcode = cli:del("ab")
+assert(rblob == nil and rcode == henb.DELERR)
 
 
-rblob, rcode = nb.exit_server() 
+rblob, rcode = cli:exit_server() 
 assert(rblob == "" and rcode == nil)
 
 -- os.remove(ha) works only when executed in blobs directory

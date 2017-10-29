@@ -37,7 +37,8 @@ serve(server)
 
 ]]
 
-local VERSION = "0.2"
+local henb = {}
+henb.VERSION = "0.2"
 
 
 local he = require "he"
@@ -57,7 +58,8 @@ local quiet = function(...) return  end
 
 
 ------------------------------------------------------------------------
--- common definitions (client and server)
+-- henb module
+
 
 local function send(so, code, id, content)
 	content = content or ""
@@ -92,40 +94,40 @@ local function receive(so)
 	return code, id, blob
 end --receive()
 
-local cmds = {
-	NOP = 0,
-	GET = 1,
-	PUT = 2,
-	UPD = 3,
-	DEL = 4,
-	CHK = 5,
-	--
-	EXIT = 0xff
-}
 
-local status = {
-	OK = 0,
-	UNKNOWN = 1,
-	NOTFOUND = 2,
-	BADHASH = 3,
-	DELERR = 4,
-	
-}
+-- command codes
+henb.NOP = 0
+henb.GET = 1
+henb.PUT = 2
+henb.UPD = 3
+henb.DEL = 4
+henb.CHK = 5
+henb.EXIT = 255
+--
+-- status
+henb.OK = 0
+henb.UNKNOWN = 1
+henb.NOTFOUND = 2
+henb.BADHASH = 3
+henb.DELERR = 4
 
 ------------------------------------------------------------------------
 -- client definitions
 
-default_options = {
-	host = "localhost",     -- server bind address
-	port = 3091,            -- server port
-}
+henb.client = he.class()
 
-local function cmd(code, id, blob, opt)
-	-- send code, blob to server (server response is (rcode, rblob)
+function henb.newclient(host, port)
+	local cli = henb.client()
+	cli.host = host or "localhost"
+	cli.port = port or 3091
+	return cli
+end
+
+function henb.client.cmd(cli, code, id, blob)
+	-- send code, id, blob to server (server response is (rcode, rblob)
 	-- (id is not used in server responses)
 	-- return rblob, or nil, rcode
-	opt = opt or default_options
-	local so, msg = hesock.connect(opt.host, opt.port)
+	local so, msg = hesock.connect(cli.host, cli.port)
 	if not so then return nil, msg end
 	send(so, code, id, blob)
 	local rcode, id, rblob = receive(so)
@@ -137,45 +139,41 @@ local function cmd(code, id, blob, opt)
 	end
 end--cmd
 
-local function nop(opt)
-	return cmd(cmds.NOP, "",  "", opt)
+function henb.client.nop(cli)
+	return cli:cmd(henb.NOP, "",  "")
 end--nop
 
-local function exit_server(opt)
-	return cmd(cmds.EXIT, "", "", opt)
+function henb.client.exit_server(cli)
+	return cli:cmd(henb.EXIT, "", "")
 end
 
-local function put(bid, blob, opt)
-	return cmd(cmds.PUT, bid, blob, opt)
+function henb.client.put(cli, bid, blob)
+	return cli:cmd(henb.PUT, bid, blob)
 end
 
-local function update(bid, blob, opt)
-	return cmd(cmds.UPD, bid, blob, opt)
-end
-
-local function get(bid, opt)
+function henb.client.get(cli, bid)
 	-- get blob with id 'bid'
-	return cmd(cmds.GET, bid, "", opt)
+	return cli:cmd(henb.GET, bid, "")
 end
 
-local function chk(bid, opt)
+function henb.client.chk(cli, bid)
 	-- check blob identified by bid
-	-- return blob ln or nil, status.NOTFOUND
-	local rblob, rcode = cmd(cmds.CHK, bid, "", opt)
+	-- return blob ln or nil, henb.NOTFOUND
+	local rblob, rcode = cli:cmd(henb.CHK, bid, "")
 	if not rblob then return nil, rcode end
 	local bln, msg = sunpack("<I4", rblob)
 	return bln, msg
 end
 
-local function del(bh, opt)
-	return cmd(cmds.DEL, bh, opt)
+function henb.client.del(cli, bid)
+	return cli:cmd(henb.DEL, bid)
 end
 
 ------------------------------------------------------------------------
 -- server definitions
 
-default_server = {  
-	bindhost = "localhost", -- server bind address
+henb.default_server = {  
+	host = "localhost", -- server bind address
 	port = '3091',            -- server port
 	exit_server = false,  -- set this to true to request the server to exit
 	store_path = './',    -- path to dir where blobs are stored 
@@ -204,53 +202,53 @@ default_server = {
 	-- server operation handlers
 	-- handler sig: function(server, id, blob) return rcode, rblob
 	--
-	[cmds.NOP] = function(server, id, blob) 
-		return status.OK, "" 
+	[henb.NOP] = function(server, id, blob) 
+		return henb.OK, "" 
 	end,
 
-	[cmds.EXIT] = function(server, id, blob) 
+	[henb.EXIT] = function(server, id, blob) 
 		server.log("exit requested")
 		server.exit_server = true
-		return status.OK, ""
+		return henb.OK, ""
 	end,
 
-	[cmds.GET] = function(server, id, blob)
+	[henb.GET] = function(server, id, blob)
 		local rblob = server.sget(server, id)
 		if rblob then
-			return status.OK, rblob
+			return henb.OK, rblob
 		else
-			return status.NOTFOUND, ""
+			return henb.NOTFOUND, ""
 		end
 	end,
 
-	[cmds.PUT] = function(server, id, blob)	
+	[henb.PUT] = function(server, id, blob)	
 		server.sput(server, id, blob)
-		return status.OK, ""
+		return henb.OK, ""
 	end,
 
-	[cmds.CHK] = function(server, id, blob)	
+	[henb.CHK] = function(server, id, blob)	
 		local b = server.sget(server, id)
-		if not b then return status.NOTFOUND, "" end
-		return status.OK, spack("<I4", #b)
+		if not b then return henb.NOTFOUND, "" end
+		return henb.OK, spack("<I4", #b)
 	end,
 
-	[cmds.DEL] = function(server, id, blob)	
+	[henb.DEL] = function(server, id, blob)	
 		local r, msg = server.sdel(server, id)
 		if not r then 
 			server.log("del error:", msg)
-			return status.DELERR, "" end
-		return status.OK, ""
+			return henb.DELERR, "" end
+		return henb.OK, ""
 	end,
 	----------------------------
 
 } --server
 
-local function serve(server)
-	server = server or default_server
+function henb.serve(server)
+	server = server or henb.default_server
 	local sso, cso -- server socket, client socket
 	local msg, code, idln, id, bln, blob, rcode, rblob
 	local handler
-	local sso = assert(hesock.bind(server.bindhost, server.port))
+	local sso = assert(hesock.bind(server.host, server.port))
 	server.log(strf("phs: bound to %s %d", hesock.getserverinfo(sso)))
 	while true do
 		if server.exit_server then
@@ -266,7 +264,7 @@ local function serve(server)
 		if not code then server.log("no code"); goto close end
 		handler = server[code]
 		if not handler then
-			send(cso, status.UNKNOWN, "") -- unknown code
+			send(cso, henb.UNKNOWN, "") -- unknown code
 		else
 --~ server.log("request code, id, bln: ", code, he.repr(id), #blob)
 			rcode, rblob = handler(server, id, blob)
@@ -288,25 +286,7 @@ end--serve()
 --~ if arg[0] == "henb.lua" and arg[1] == "test" then serve() end
 
 ------------------------------------------------------------------------
-return {
-	VERSION = VERSION,
-	status = status,
-	log = log,
-	--
-	-- client
-	nop = nop,
-	cmd = cmd,
-	put = put,
-	get = get,
-	chk = chk,
-	del = del,
-	exit_server = exit_server,
-	default_options = default_options,
-	--
-	-- server
-	default_server = default_server,
-	serve = serve,
-}
+return henb
 
 
 
