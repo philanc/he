@@ -36,6 +36,43 @@ local spack, sunpack = string.pack, string.unpack
 local app, concat = table.insert, table.concat
 
 ------------------------------------------------------------------------
+-- luazen v0.10 support
+
+function hezen.x25519_keypair()
+	local ask = hezen.randombytes(32)
+	local apk = hezen.x25519_public_key(ask)
+	return apk, ask
+end
+
+function hezen.x25519_key_exchange(ask, bpk)
+	local sec = hezen.x25519_shared_secret(ask, bpk)
+	local ctx = hezen.blake2b_init(32)
+	hezen.blake2b_update(ctx, sec)
+	local k = hezen.blake2b_final(ctx)
+	return k
+end
+
+function hezen.x25519_sign_keypair()
+	local ask = hezen.randombytes(32)
+	local apk = hezen.x25519_sign_public_key(ask)
+	return apk, ask
+end
+
+
+--[[
+pk, sk = lz.sign_keypair() -- signature keypair
+assert(pk == lz.sign_public_key(sk))
+
+sig = lz.sign(sk, pk, t)
+assert(#sig == 64)
+--~ px(sig, 'sig')
+
+-- check signature
+assert(lz.check(sig, pk, t))
+]]
+
+
+------------------------------------------------------------------------
 -- norx encryption (from the pcrypt tool)
 
 -- authenticated encryption for arbitrarily large files
@@ -66,9 +103,9 @@ function hezen.encrypt_stream(k, fhi, fho, pkflag)
 	local nonce
 	if pkflag then
 		pk = k
-		rpk, rsk = hezen.keypair()
+		rpk, rsk = hezen.x25519_keypair()
 		nonce = rpk  -- use the random pk as the nonce
-		k = hezen.key_exchange(rsk, pk) -- get the session key
+		k = hezen.x25519_key_exchange(rsk, pk) -- get the session key
 	else
 		nonce = hezen.randombytes(32)
 	end
@@ -87,7 +124,7 @@ function hezen.encrypt_stream(k, fhi, fho, pkflag)
 		end
 		block = assert(fhi:read(rdlen))
 		eof = (#block < rdlen)
-		local cblock = hezen.aead_encrypt(k, nonce, block, ninc, aad)
+		local cblock = hezen.norx_encrypt(k, nonce, block, ninc, aad)
 		ninc = ninc + 1
 		assert(fho:write(cblock))
 	end--while
@@ -121,13 +158,13 @@ function hezen.decrypt_stream(k, fhi, fho, pkflag)
 			if pkflag then 
 				rpk = nonce -- the nonce is also the random public key
 				sk = k
-				k = hezen.key_exchange(sk, rpk) -- get the session key
+				k = hezen.x25519_key_exchange(sk, rpk) -- get the session key
 			end
 			aadlen = 32
 		else
 			aadlen = 0
 		end
-		local pblock, msg = hezen.aead_decrypt(k, nonce, block, ninc, aadlen)
+		local pblock, msg = hezen.norx_decrypt(k, nonce, block, ninc, aadlen)
 		ninc = ninc + 1
 		if not pblock then return nil, msg end
 		assert(fho:write(pblock))

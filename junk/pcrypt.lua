@@ -1,10 +1,11 @@
 -- pcrypt
 
+--180423 adapt to luazen-0.10 => v0.5
 --170504 added kpw command => v0.3
 --170303 added pk en(de)cryption, changed op names => v0.2
 --170302 initial implem.
 
-local pcrypt_VERSION = "pcrypt 0.3"
+local pcrypt_VERSION = "pcrypt 0.5"
 
 ------------------------------------------------------------------------
 -- local definitions
@@ -46,6 +47,26 @@ end
 
 local function perr(...) io.stderr:write(...); io.stderr:write("\n") end
 
+
+------------------------------------------------------------------------
+-- luazen-v0.10 support
+
+lz.aead_encrypt = lz.norx_encrypt
+lz.aead_decrypt = lz.norx_decrypt
+
+lz.keypair = function()
+	local ask = lz.randombytes(32)
+	local apk = lz.x25519_public_key(ask)
+	return apk, ask
+end
+
+function lz.key_exchange(ask, bpk)
+	local sec = lz.x25519_shared_secret(ask, bpk)
+	local ctx = lz.blake2b_init(32)
+	lz.blake2b_update(ctx, sec)
+	local k = lz.blake2b_final(ctx)
+	return k
+end
 
 ------------------------------------------------------------------------
 

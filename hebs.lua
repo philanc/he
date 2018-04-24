@@ -110,7 +110,7 @@ function hebs.readblob(db, bx, ln)
 	assert(#eb == eln, "read error")
 	local nonce = eb:sub(eln-31, eln) -- the last 32 bytes
 	-- additional data:  header = none, trailer = 32 bytes (nonce)
-	local b, aad, zad = hezen.aead_decrypt(db.key, nonce, eb, 0, 0, 32)
+	local b, aad, zad = hezen.norx_decrypt(db.key, nonce, eb, 0, 0, 32)
 	-- if decrypt failed, b is nil and aad is the error msg
 	assert(b, aad)
 	return b, nonce
@@ -126,7 +126,7 @@ function hebs.writeblob(db, blob, nonce)
 	nonce = nonce or encode_nonce(db, blob)
 	local bx = assert(db.fh:seek("end"))
 	-- nonce is used as additional data trailer
-	local eb = hezen.aead_encrypt(db.key, nonce, blob, 0, "", nonce)
+	local eb = hezen.norx_encrypt(db.key, nonce, blob, 0, "", nonce)
 	assert(db.fh:write(eb))
 	local n = assert(db.fh:seek("end"))
 	assert(n == bx + #blob + 64, "new offset error")
