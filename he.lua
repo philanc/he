@@ -1,4 +1,4 @@
--- Copyright (c) 2017  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2018  Phil Leblanc  -- see LICENSE file
 
 ------------------------------------------------------------------------
 --[[	
@@ -48,6 +48,8 @@ content:
   -- string functions
   startswith	test if a string starts with  a prefix
   endwith		test if a string ends with  a suffix
+  padl          pad a string on the left
+  padr          pad a string on the right
   split			split a string on a separator pattern
   rstrip		strip whitespace at beginning
   lstrip		strip whitespace at end
@@ -96,7 +98,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he097, 170910'
+he.VERSION = 'he098, 180430'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -427,6 +429,24 @@ function he.endswith(s, sx)
 		end
 	end--if
 end--endswith
+
+function he.padl(s, w, ch) 
+	-- pad s to the left to width w with char ch
+	ch = ch or " "
+	if #s < w then 
+		s = ch:rep(w - #s) .. s
+	end
+	return s
+end
+
+function he.padr(s, w, ch) 
+	-- pad s to the right to width w with char ch
+	ch = ch or " "
+	if #s < w then 
+		s = s .. ch:rep(w - #s)
+	end
+	return s
+end
 
 function he.split(s, sep, cnt)
 	-- sep: split on sep, defaults to whitespaces (a la py)
@@ -945,23 +965,50 @@ function he.errf(...) error(string.format(...)) end
 --~ end
 
 ------------------------------------------------------------------------
--- elapsed time -- is os.clock() measuring elapsed or cpu time? keep it?
+-- elapsed time, used memory
 
-local _hei_load_clock = os.clock()
-local _hei_load_time = os.time()
+local _he_init_time = os.time()
+local _he_init_clock = os.clock()
 
 function he.elapsed()
 	-- return elapsed time since 'he' was loaded (in seconds)
 	-- and cpu time ... or whatever os.clock() refers to :-)
-	return (os.time() - _hei_load_time), (os.clock() - _hei_load_clock)
+	return (os.time() - _he_init_time), (os.clock() - _he_init_clock)
 end
 
 
-function he.print_elapsed(msg) 
--- display elapsed time
-	local duration, cpu = he.elapsed()
-	print(msg or 'Elapsed:', duration, cpu)  
+function he.time_init()
+	local t0, c0 = os.time(), os.clock()
+	-- convenience: set he global variables
+	_he_init_time, _he_init_clock = t0, c0
+	return t0, c0
 end
+
+function he.time(t0, c0)
+	-- return (time, clock) since (t0, c0)
+	c0 = c0 or _he_init_clock
+	t0 = t0 or _he_init_time
+	return (os.time() - t0), (os.clock() - c0)
+end--time()
+
+function he.print_time()
+	-- display elapsed time and clock
+	local duration, cpu = he.time()
+	print(string.format("elapsed: %d  cpu: %.2f", duration, cpu))
+end--print_time()
+
+function he.mem() 
+	-- return used memory, in bytes
+	return math.floor(collectgarbage'count' * 1024) 
+end
+
+function he.print_mem(m, msg)
+	-- print used memory in a human readable format ("1,000,000")
+	msg = msg or  "Used memory (in bytes): "
+	m = m or he.mem()
+	print(msg .. he.padl(he.ntos(m, "%d"), 15))
+end
+
 
 ------------------------------------------------------------------------
 -- extend environment
@@ -970,6 +1017,8 @@ function he.extend_string()
 	-- extend string module with he string functions
 	string.startswith  =  he.startswith
 	string.endswith  =  he.endswith
+	string.padl  =  he.padl
+	string.padr  =  he.padr
 	string.split  =  he.split
 	string.lines = he.lines
 	string.lstrip  =  he.lstrip
