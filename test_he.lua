@@ -53,6 +53,14 @@ assert(he.rstrip(s) == '\tabc')
 assert(he.lstrip(s) == 'abc  \r\n  ')
 assert(he.lstrip('\r\r\n\na') == 'a')
 
+assert(he.rpad('abc', 6) == "abc   ")
+assert(he.lpad('abc', 6) == "   abc")
+assert(he.rpad('abc', 6, '-') == "abc---")
+assert(he.lpad('abc', 6, '-') == "---abc")
+assert(he.rpad('abcdef', 3) == "abcdef")
+assert(he.lpad('abcdef', 3) == "abcdef")
+
+
 
 ------------------------------------------------------------------------
 -- test classes and objects

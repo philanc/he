@@ -2,8 +2,10 @@
 
 === test_hezen
 
+
 hezen / luazen unit tests
--- updated for luazen-0.8 ("norx")
+-- updated for luazen-0.10 (modular structure, api changes, morus)
+-- updated for luazen-0.8 (norx)
 -- removed rabbit, sha1
 
 ]]

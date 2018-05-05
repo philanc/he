@@ -48,8 +48,8 @@ content:
   -- string functions
   startswith	test if a string starts with  a prefix
   endwith		test if a string ends with  a suffix
-  padl          pad a string on the left
-  padr          pad a string on the right
+  lpad          pad a string on the left
+  rpad          pad a string on the right
   split			split a string on a separator pattern
   rstrip		strip whitespace at beginning
   lstrip		strip whitespace at end
@@ -430,7 +430,7 @@ function he.endswith(s, sx)
 	end--if
 end--endswith
 
-function he.padl(s, w, ch) 
+function he.lpad(s, w, ch) 
 	-- pad s to the left to width w with char ch
 	ch = ch or " "
 	if #s < w then 
@@ -439,7 +439,7 @@ function he.padl(s, w, ch)
 	return s
 end
 
-function he.padr(s, w, ch) 
+function he.rpad(s, w, ch) 
 	-- pad s to the right to width w with char ch
 	ch = ch or " "
 	if #s < w then 
@@ -1006,7 +1006,7 @@ function he.print_mem(m, msg)
 	-- print used memory in a human readable format ("1,000,000")
 	msg = msg or  "Used memory (in bytes): "
 	m = m or he.mem()
-	print(msg .. he.padl(he.ntos(m, "%d"), 15))
+	print(msg .. he.lpad(he.ntos(m, "%d"), 15))
 end
 
 
@@ -1017,8 +1017,8 @@ function he.extend_string()
 	-- extend string module with he string functions
 	string.startswith  =  he.startswith
 	string.endswith  =  he.endswith
-	string.padl  =  he.padl
-	string.padr  =  he.padr
+	string.lpad  =  he.lpad
+	string.rpad  =  he.rpad
 	string.split  =  he.split
 	string.lines = he.lines
 	string.lstrip  =  he.lstrip
