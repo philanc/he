@@ -588,6 +588,34 @@ function he.hextos(hs, unsafe)
 		))
 end -- hextos
 
+function he.ntos(n, nf, pad)
+	-- "number to string"
+	-- represent number n as a string with a thousand separator (',')
+	-- use optional printf format 'nf' (default is %d)
+	-- eg. ntos(12345) -> "12,345",  
+	-- with Lua 5.3, if n is not an integer, default format '%.2f' is used
+	-- eg. ntos(1234.5) -> "1,234.50"
+	-- pad is an optional. If provided, the represented number is 
+	-- left-padded with spaces so that the result length is 'pad'
+	-- eg. ntos(1234.5, nil, 10) == "  1,234.50"
+	
+	if _VERSION=="Lua 5.3" and math.type(n)=="float" then 
+		nf = nf or "%.2f" 
+	else
+		nf = nf or "%d"
+	end 
+	local s = string.format(nf, n)
+	local t = he.split(s, '%.'); s = t[1]
+	s, n = string.gsub(s, '(%d)(%d%d%d)$', '%1,%2')
+	while n > 0 do
+		s, n = string.gsub(s, '(%d)(%d%d%d),', '%1,%2,')
+	end
+	t[1] = s
+	s = table.concat(t, '.')  
+	if pad then return he.lpad(s, pad) end
+	return s
+end--ntos()
+
 
 function he.ntos(n, nf)
 	-- "number to string"
