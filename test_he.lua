@@ -346,5 +346,9 @@ end -- if
 
 os.remove(fn)
 
+--~ print(he.mem())
+--~ he.mem_print()
+--~ print(he.clock())
+--~ he.clock_print()
 
 

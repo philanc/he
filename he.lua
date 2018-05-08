@@ -993,46 +993,36 @@ function he.errf(...) error(string.format(...)) end
 ------------------------------------------------------------------------
 -- elapsed time, used memory
 
-local _he_init_time = os.time()
-local _he_init_clock = os.clock()
+-- replace elapsed() and dual time()/clock() display with  a simpler 
+-- clock()-based function (looks like clock() is "the best" source for
+-- elapsed time (with a precision ~ 0.1s)
+-- (seems reasonable at least on linux and windows)
 
-function he.elapsed()
-	-- return elapsed time since 'he' was loaded (in seconds)
-	-- and cpu time ... or whatever os.clock() refers to :-)
-	return (os.time() - _he_init_time), (os.clock() - _he_init_clock)
+function he.clock_start()
+	he.clock_start_value = os.clock()
 end
 
-
-function he.time_init()
-	local t0, c0 = os.time(), os.clock()
-	-- convenience: set he global variables
-	_he_init_time, _he_init_clock = t0, c0
-	return t0, c0
+function he.clock()
+	return os.clock() - (he.clock_start_value or 0)
 end
 
-function he.time(t0, c0)
-	-- return (time, clock) since (t0, c0)
-	c0 = c0 or _he_init_clock
-	t0 = t0 or _he_init_time
-	return (os.time() - t0), (os.clock() - c0)
-end--time()
+function he.clock_print(msg)
+	msg = msg or "elapsed"
+	print(string.format("%s: %.1f", msg, he.clock()))
+end
 
-function he.print_time()
-	-- display elapsed time and clock
-	local duration, cpu = he.time()
-	print(string.format("elapsed: %d  cpu: %.2f", duration, cpu))
-end--print_time()
 
 function he.mem() 
 	-- return used memory, in bytes
+	collectgarbage()
 	return math.floor(collectgarbage'count' * 1024) 
 end
 
-function he.print_mem(m, msg)
+function he.mem_print(m, msg)
 	-- print used memory in a human readable format ("1,000,000")
-	msg = msg or  "Used memory (in bytes): "
+	msg = msg or "Used memory (in bytes): "
 	m = m or he.mem()
-	print(msg .. he.lpad(he.ntos(m, "%d"), 15))
+	print(msg .. he.ntos(m, "%d", 15))
 end
 
 
