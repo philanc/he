@@ -924,22 +924,31 @@ function he.l2s(t)
 	return '{' .. table.concat(rl, ', ') .. '}'
 end
 
-function he.t2s(t)
+function he.t2s(t, depth)
 	-- return table t as a string 
 	-- (an evaluable lua table, at least for bool, str and numbers)
-	-- (!!cycles are not detected!!)
+	-- (!!cycles are not detected!! - t2s() errors if it recurses
+	-- more than 20 levels)
 	local repr, app, join = he.repr, he.list.app, he.list.join
+	depth = (depth or 0) + 1
+	if depth > 20 then
+		error("he.t2s: depth error")
+	end
 	if type(t) ~= "table" then return repr(t) end
 	if getmetatable(t) == he.list then return he.l2s(t)  end
 	local rl = {}
 	-- pairs() is no longer deterministic: several runs on same table
 	-- return elements in different order...  (lua 5.3?)
 	for i, k in ipairs(he.sortedkeys(t)) do 
-		table.insert(rl, '[' .. repr(k) .. ']=' .. he.t2s(t[k])) 
+		if k == "__index" then 
+			-- skip it (or infinite recursion on classes...)
+		else 
+			table.insert(rl, '[' .. repr(k) .. ']=' 
+				.. he.t2s(t[k], depth)) 
+		end
 	end
 	return '{' .. table.concat(rl, ', ') .. '}'
-end
-
+end--t2s()
 
 -- display any object
 
