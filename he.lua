@@ -7,84 +7,84 @@
 
 content:
 
-  equal			test equality (deep)
-  cmpany	compare values with any type 
-				(useful to sort heterogeneous lists)
+  equal         test equality (deep)
+  cmpany        compare values with any type 
+                (useful to sort heterogeneous lists)
 
-  class			a minimalist class constructor
-  list			a simple List class
+  class         a minimalist class constructor
+  list          a simple List class
   
   -- list functions:
-  insert		insert or append an element (same as table.insert)
-  remove		remove an element (same as table.remove)
-  pop			(same as table.remove)
-  concat		join all elements into a string (same as table.concat)
-  sort			sort a list (same as table.sort)
-  sorted		return a sorted copy of a list
-  extend		append all the elements of another list 
-  filter		select elements that match a predicate
-  map			map a function over a list
-  has			test if a list contains some value
-  find_elem		find an element that matches a predicate
-  check_elems	check that all elements match a predicate
-  lseq			test equality (shallow)
-  elems			iterator over the elements of a list (matching a predicate)
-  uniq			return a list with unique elements in a list
-  uinsert		same as app but ensure all elements are unique
-  uextend		same as extend but ensure all elements are unique
-  uremove		remove first occurence of a value in a list
+  insert        insert or append an element (same as table.insert)
+  remove        remove an element (same as table.remove)
+  pop           (same as table.remove)
+  concat        join all elements into a string (same as table.concat)
+  sort          sort a list (same as table.sort)
+  sorted        return a sorted copy of a list
+  extend        append all the elements of another list 
+  filter        select elements that match a predicate
+  map           map a function over a list
+  has           test if a list contains some value
+  find_elem     find an element that matches a predicate
+  check_elems   check that all elements match a predicate
+  lseq          test equality (shallow)
+  elems         iterator over the elements of a list (matching a predicate)
+  uniq          return a list with unique elements in a list
+  uinsert       same as app but ensure all elements are unique
+  uextend       same as extend but ensure all elements are unique
+  uremove       remove first occurence of a value in a list
   
 
   -- other table functions
-  clone			copy a table (shallow copy)
-  update		extend a table with the (key, val) from another table
-  incr			increment a value in a table (create value if needed)
-  collect		append to a list in a table (create list if needed)
-  ucollect		same as collect but elements in list are unique
-  keys			return table keys
-  sortedkeys	return table keys sorted
-  count			count elements in a table
+  clone         copy a table (shallow copy)
+  update        extend a table with the (key, val) from another table
+  incr          increment a value in a table (create value if needed)
+  collect       append to a list in a table (create list if needed)
+  ucollect      same as collect but elements in list are unique
+  keys          return table keys
+  sortedkeys    return table keys sorted
+  count         count elements in a table
   
   -- string functions
-  startswith	test if a string starts with  a prefix
-  endwith		test if a string ends with  a suffix
+  startswith    test if a string starts with  a prefix
+  endwith       test if a string ends with  a suffix
   lpad          pad a string on the left
   rpad          pad a string on the right
-  split			split a string on a separator pattern
-  rstrip		strip whitespace at beginning
-  lstrip		strip whitespace at end
-  strip			strip whitespace at beginning and end
-  stripeol		strip whitespace at each end of line
-  stripnl		strip empty lines at beginning and end
-  unix2dos		convert LF to CRLF
-  dos2unix		convert CRLF to LF
-  escape_re		escape a string so it can be used as a re pattern
-  repr			return a string representation of a value
+  split         split a string on a separator pattern
+  rstrip        strip whitespace at beginning
+  lstrip        strip whitespace at end
+  strip         strip whitespace at beginning and end
+  stripeol      strip whitespace at each end of line
+  stripnl       strip empty lines at beginning and end
+  unix2dos      convert LF to CRLF
+  dos2unix      convert CRLF to LF
+  escape_re     escape a string so it can be used as a re pattern
+  repr          return a string representation of a value
   stohex        return a hexadecimal representation of a binary string
   hextos        parse a hex encoded string, return the string
-  ntos			convert a number to a string with a thousand separator ','
+  ntos          convert a number to a string with a thousand separator ','
   
   --misc OS functions
-  isodate		convert time to ISO date representation
-  iso2time		parse ISO date and return a time (sec since epoch)
-  shell			execute a shell command, return stdout as a string
+  isodate       convert time to ISO date representation
+  iso2time      parse ISO date and return a time (sec since epoch)
+  shell         execute a shell command, return stdout as a string
   cmd           same as shell(), but return also stderr as an error msg
   cmdlines      same as cmd(), but return stdout as a list of lines 
-  escape_sh		escape posix shell special chars
+  escape_sh     escape posix shell special chars
   source_line   return the current file and line number
-  exitf			write a formatted message and exit from the program
+  exitf         write a formatted message and exit from the program
   checkf        check a value. if false, exit with a formatted message
   
   -- misc file and pathname functions
-  fget			return the content of a file as a string
-  fput			write a string to a file
-  fgetlines		return the content of a file as a list of strings
-  fputlines		write a list of lines to a file
-  pnormw		normalize a path for windows
-  pnorm			normalize a path for unix
-  tmpdir		returns a temp directory
-  ptmp			returns a temp path
-  basename		strip directory and suffix from a file path
+  fget          return the content of a file as a string
+  fput          write a string to a file
+  fgetlines     return the content of a file as a list of strings
+  fputlines     write a list of lines to a file
+  pnormw        normalize a path for windows
+  pnorm         normalize a path for unix
+  tmpdir        returns a temp directory
+  ptmp          returns a temp path
+  basename      strip directory and suffix from a file path
   dirname       strip last component from file path
   fileext       return the extension of a file path
   makepath      concatenate a directory name and a file name
@@ -234,8 +234,10 @@ function list.map(lst, f, ...)
 end
 
 function list.lseq(lst, lst2)
-	-- "list simple (or shallow) equal" - compare list/array portion of tables
-	--  (uses '==' for comparison --ie identity-- for tables. does not recurse)
+	-- "list simple (or shallow) equal" 
+	-- compare list/array portion of tables
+	-- (uses '==' for comparison --ie identity-- 
+	-- for tables. does not recurse)
 	if #lst ~= #lst2 then return false end
 	for i = 1, #lst do 
 		if lst[i] ~= lst2[i] then return false end 
@@ -373,9 +375,10 @@ end
 
 function he.sortedkeys(t, pred, ...)  
 	-- returns sorted list of keys of t
-	-- if predicate is defined, return only keys for which pred(v, ...) is true
+	-- if predicate is defined, return only keys for which 
+	-- pred(v, ...) is true
 	-- sort works with heterogeneous keys (use cmpany) 
-	--   in case of performance issue, simply use sorted(keys(. . .)) )
+	-- in case of performance issue, simply use sorted(keys(. . .)) 
 	local kt = he.keys(t, pred, ...); 
 	table.sort(kt, he.cmpany); 
 	return kt 
@@ -386,7 +389,9 @@ function he.count(t, pred, ...)
 	-- if pred, count only keys for which pred(v, ...) is true
 	local n = 0
 	if pred then 
-		for k,v in pairs(t) do if pred(v, ...) then  n = n + 1 end end
+		for k,v in pairs(t) do 
+			if pred(v, ...) then  n = n + 1 end 
+		end
 	else
 		for k,v in pairs(t) do n = n + 1 end
 	end--if pred
@@ -425,7 +430,9 @@ function he.endswith(s, sx)
 	else -- assume sx is a list of suffix
 		for i, su in ipairs(sx) do 
 			local j = #s - #su + 1
-			if string.find(s, su, j, true) == j then return su end
+			if string.find(s, su, j, true) == j then 
+				return su 
+			end
 		end
 	end--if
 end--endswith
@@ -523,7 +530,9 @@ end
 -- string representations
 
 function he.repr(x) 
-	if type(x) == 'number' or type(x) == 'boolean' or type(x) == 'nil' then
+	if type(x) == 'number' 
+	   or type(x) == 'boolean' 
+	   or type(x) == 'nil' then
 		return tostring(x)
 	else
 		return string.format("%q", tostring(x)) 
@@ -585,8 +594,8 @@ function he.ntos(n, nf)
 	-- represent number n as a string with a thousand separator (',')
 	-- use optional printf format 'nf' (default is %d)
 	-- eg. ntos(12345) -> "12,345",  
-	-- with Lua 5.3, if n is not an integer, default format '%.2f' is used
-	-- eg. ntos(1234.5) -> "1,234.50"
+	-- with Lua 5.3, if n is not an integer, default format '%.2f' 
+	-- is used. eg. ntos(1234.5) -> "1,234.50"
 	
 	if _VERSION=="Lua 5.3" and math.type(n)=="float" then 
 		nf = nf or "%.2f" 
@@ -805,7 +814,8 @@ function he.tmpname()
 	-- with lua 5.3.4 compiled with VS2014/VC, 
 	-- os.tmpname returns an absolute path like "C:\...\sl5s.3"	
 	if he.windows then
-		return he.tmpdir() .. '/' .. he.basename(he.pnorm(os.tmpname()))
+		return he.tmpdir() .. '/' 
+		       .. he.basename(he.pnorm(os.tmpname()))
 	else
 		return os.tmpname()
 	end
@@ -842,7 +852,8 @@ end
 function he.basename(path, suffix)
 	-- works like unix basename.  
 	-- if path ends with suffix, it is removed
-	-- if suffix is a list, then first matching suffix in list is removed
+	-- if suffix is a list, then first matching suffix in list 
+	-- is removed
 	if path:match("^/+$") then return "/" end -- this is gnu basename!
 	path = striprsep(path)
 	path = path:gsub('^/+', '')
@@ -907,7 +918,8 @@ function he.l2s(t)
 	local rl = {}
 	local repr, app, join = he.repr, he.list.app, he.list.join
 	for i, v in ipairs(t) do 
-		table.insert(rl, (type(v) == "table") and he.t2s(v) or repr(v))
+		table.insert(rl, 
+			(type(v) == "table") and he.t2s(v) or repr(v))
 	end
 	return '{' .. table.concat(rl, ', ') .. '}'
 end
@@ -937,10 +949,11 @@ function he.pp(...)
 		x = select(i, ...)
 		if type(x) == 'table' then 
 			he.printf("pp: %s   metatable: %s",  
-						tostring(x), tostring(getmetatable(x)))						
+				tostring(x), tostring(getmetatable(x)))						
 			local kl = he.sortedkeys(x)
 			for i,k in ipairs(kl) do
-				he.printf("	| %s:  %s", repr(k), repr(x[k]))
+				he.printf("	| %s:  %s", 
+					repr(k), repr(x[k]))
 			end
 		else he.printf("pp: %s", he.repr(x))
 		end
