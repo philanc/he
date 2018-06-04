@@ -182,7 +182,7 @@ unpack = function(s, i)
 	elseif tag == TEND then return nil, TEND
 	end
 	local b = tag:byte()
-	if b < SPI_MAX then return b, i + 1
+	if b <= SPI_MAX then return b, i + 1
 	else return nil, "unknown tag"
 	end
 end --unpack()

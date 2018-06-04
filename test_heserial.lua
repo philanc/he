@@ -21,6 +21,7 @@ local s, t, u, v, w
 assert(unpack(pack( 0 )) == 0 )
 assert(unpack(pack( -1 )) == -1 )
 assert(unpack(pack( -2 )) == -2 )
+assert(unpack(pack( 239 )) == 239 ) --0xef
 assert(unpack(pack( 1000 )) == 1000 )
 assert(unpack(pack( 1.02 )) == 1.02 )
 assert(unpack(pack( "" )) == "" )
