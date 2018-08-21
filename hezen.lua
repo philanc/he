@@ -36,7 +36,7 @@ local spack, sunpack = string.pack, string.unpack
 local app, concat = table.insert, table.concat
 
 ------------------------------------------------------------------------
--- luazen v0.10 support
+-- luazen v0.11 support
 
 function hezen.x25519_keypair()
 	local ask = hezen.randombytes(32)
@@ -46,9 +46,7 @@ end
 
 function hezen.x25519_key_exchange(ask, bpk)
 	local sec = hezen.x25519_shared_secret(ask, bpk)
-	local ctx = hezen.blake2b_init(32)
-	hezen.blake2b_update(ctx, sec)
-	local k = hezen.blake2b_final(ctx)
+	local k= hezen.blake2b(sec, 32)
 	return k
 end
 

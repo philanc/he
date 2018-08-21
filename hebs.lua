@@ -48,14 +48,6 @@ dbg = print
 local function px(s, ln) ln = ln or 32; print(bin.stohex(s, ln)) end
 local function prf(...) print(string.format(...)) end
 
-------------------------------------------------------------------------
--- hezen monkey patch 
--- add optional args digestsize and key to blake2b()
-hezen.blake2b = function(text, digsize, key)
-	local ctx = hezen.blake2b_init(digsize, key)
-	hezen.blake2b_update(ctx, text)
-	return hezen.blake2b_final(ctx)
-end
 
 ------------------------------------------------------------------------
 hebs = he.class()
