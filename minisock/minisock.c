@@ -258,7 +258,12 @@ int ll_close(lua_State *L) {
 int ll_udpsocket(lua_State *L) {
 	// create a UDP socket. Optionnally bind it to an address
 	// if an address is provided.
-	// Lua arg: server sockaddr as a binary string (optional)
+	// Lua arg: addr, the server sockaddr as a binary string. 
+	// addr is optional. if addr is null or empty, an AF_INET socket 
+	// is created and not bound. if addr is "\x0a", an AF_INET6 
+	// socket is created and not bound. if addr length is > 1, 
+	// the socket is created and bound.
+	//
 	// return socket file descriptor as integer or nil, errmsg
 	//
 	const char * addr;
@@ -267,14 +272,19 @@ int ll_udpsocket(lua_State *L) {
 	int r;
 	int family;  // AF_INET=2, AF_INET6=10
 	addr = luaL_optlstring(L, 1, NULL, &addr_len);
-	family = (int) addr[0];  // first byte of sockaddr
+	//~ printf("addr_len: %d \n", addr_len);
+	if (addr_len == 0) {
+		family = 2;
+	} else {
+		family = addr[0];  // first byte of sockaddr
+	}
 	sfd = socket(family, SOCK_DGRAM, 0); // 0 for default protocol
 	if (sfd < 0) { 
 		lua_pushnil (L);
 		lua_pushfstring (L, "udpsocket() error %d", errno);
 		return 2;      	
 	}
-	if (addr != NULL) {
+	if (addr_len > 1) {
 		// bind the socket to addr
 		r = bind(sfd, (struct sockaddr *) addr, addr_len);
 		if (r < 0) {
@@ -357,7 +367,7 @@ int ll_recvfrom(lua_State *L) {
 		return 2;      
 	}
 	n = recvfrom(fd, buf, UDPMAXSIZE, flags, 
-		(struct sockaddr *)addr, (socklen_t *)addr_len);
+		(struct sockaddr *)addr, (socklen_t *) &addr_len);
 	if (n < 0) {  // read error
 		lua_pushnil (L);
 		lua_pushfstring (L, "recvfrom error: %d  %d", n, errno);
@@ -365,7 +375,7 @@ int ll_recvfrom(lua_State *L) {
 	}		
 	lua_pushlstring (L, (const char *)&buf, n);
 	lua_pushlstring (L, (const char *)&addr, addr_len);
-	return 1;	
+	return 2;	
 } //ll_recvfrom
 
 
@@ -435,7 +445,8 @@ int ll_getaddrinfo(lua_State *L) {
 	n = getaddrinfo(host, service, &hints, &result);
 	if (n) {
 		lua_pushnil (L);
-		lua_pushfstring (L, "getaddrinfo: %d %s", n, gai_strerror(n));
+		lua_pushfstring(L, "getaddrinfo: %d %s", n, gai_strerror(n));
+		lua_pushlstring(L, (const char *)rp->ai_addr, rp->ai_addrlen);
 		return 2;
 	}
 	// build the table of the returned addresses
@@ -514,19 +525,23 @@ int ll_msleep(lua_State *L) {
 // Lua library function
 
 static const struct luaL_Reg minisocklib[] = {
+	// tcp/unix
 	{"bind", ll_bind},
 	{"accept", ll_accept},
 	{"connect", ll_connect},
 	{"write", ll_write},
 	{"read", ll_read},
 	{"close", ll_close},
+	// udp
 	{"udpsocket", ll_udpsocket},
 	{"sendto", ll_sendto},
 	{"recvfrom", ll_recvfrom},
+	// info
 	{"getsockname", ll_getsockname},
 	{"getpeername", ll_getpeername},
 	{"getaddrinfo", ll_getaddrinfo},
 	{"getnameinfo", ll_getnameinfo},
+	// misc
 	{"msleep", ll_msleep},
 	
 	{NULL, NULL},
@@ -535,16 +550,17 @@ static const struct luaL_Reg minisocklib[] = {
 
 int luaopen_minisock (lua_State *L) {
 	luaL_newlib (L, minisocklib);
-    // 
-    lua_pushliteral (L, "VERSION");
+	// 
+	lua_pushliteral (L, "VERSION");
 	lua_pushliteral (L, ll_VERSION); 
 	lua_settable (L, -3);
-    lua_pushliteral (L, "BUFSIZE");
+	lua_pushliteral (L, "BUFSIZE");
 	lua_pushinteger (L, BUFSIZE); 
 	lua_settable (L, -3);
-    lua_pushliteral (L, "UDPMAXSIZE");
+	lua_pushliteral (L, "UDPMAXSIZE");
 	lua_pushinteger (L, UDPMAXSIZE); 
 	lua_settable (L, -3);
+	//
 	return 1;
-}
+	}
 

@@ -54,9 +54,9 @@ function testudp()
 	addr = "\2\0\x10\x00\x7f\0\0\1\0\0\0\0\0\0\0\0"
 	s = "127.0.0.1 port 4096"
 	print("---")
+	-- launch server, ensure it has enough time to start listening
 	print("spawning echoserver.lua udp receiving on " .. s)
 	os.execute("lua echoserver.lua udp & ")
-	-- ensure server has enough time to start listening
 	ms.msleep(500)
 
 	sfd, msg = ms.udpsocket()
@@ -66,7 +66,7 @@ function testudp()
 	r, msg = ms.sendto(sfd, addr, req)
 	print("echoclient sendto on fd ".. sfd .. ":", req)
 
-	resp, msg = ms.read(sfd)
+	resp, msg = ms.recvfrom(sfd)
 	if not resp then print("echoclient:", msg); goto exit end
 
 	print("echoclient recvfrom on fd ".. sfd .. ":", resp)
