@@ -5,7 +5,7 @@
 #   Lua binary and include files are to be found repectively in 
 #   $(LUADIR)/bin and $(LUADIR)/include
 
-LUADIR ?= ../lua
+LUADIR ?= ../../lua
 
 # ----------------------------------------------------------------------
 

@@ -50,8 +50,39 @@ function test(af_unix)
 	end
 end--test()
 
+function testudp()
+	addr = "\2\0\x10\x00\x7f\0\0\1\0\0\0\0\0\0\0\0"
+	s = "127.0.0.1 port 4096"
+	print("---")
+	print("spawning echoserver.lua udp receiving on " .. s)
+	os.execute("lua echoserver.lua udp & ")
+	-- ensure server has enough time to start listening
+	ms.msleep(500)
+
+	sfd, msg = ms.udpsocket()
+	if not sfd then print("echoclient:", msg); goto exit end
+
+	req = "Hello udp!"
+	r, msg = ms.sendto(sfd, addr, req)
+	print("echoclient sendto on fd ".. sfd .. ":", req)
+
+	resp, msg = ms.read(sfd)
+	if not resp then print("echoclient:", msg); goto exit end
+
+	print("echoclient recvfrom on fd ".. sfd .. ":", resp)
+	assert(resp == "echo:" .. req)
+
+	r, msg = ms.close(sfd)
+	if not r then print("echoclient:", msg); goto exit end
+	
+	::exit::
+	
+end --testudp()
+
+
 test(true)  -- AF_UNIX (/tmp/minisock.sock)
 test(false) -- AF_INET (localhost)
+testudp()
 
 
 ------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------
 /* 
 
-minisock - A minimal Lua socket library for tcp connections
+minisock - A minimal Lua socket library for unix / tcp / udp connections
 
 Functions:
   bind         create a socket; bind it to a host address and port; listen
@@ -53,6 +53,8 @@ eg. for a IPv4 address:
 #define ll_VERSION "0.5"
 #define BUFSIZE 4096
 #define BACKLOG 32
+#define UDPMAXSIZE 2048
+#define ADDRMAXSIZE 128
 
 // default timeout: 10 seconds
 #define DEFAULT_TIMEOUT 10000
@@ -61,7 +63,7 @@ eg. for a IPv4 address:
 int ll_bind(lua_State *L) {
 	// create a server socket, bind, then listen 
 	// Lua args: server sockaddr as a binary string
-	// returns server socket file descriptor as integer or nil, errmsg
+	// return server socket file descriptor as integer or nil, errmsg
 	//
 	const char * addr;
 	size_t addr_len;
@@ -103,7 +105,7 @@ int ll_bind(lua_State *L) {
 int ll_accept(lua_State *L) {
 	// accept incoming connections on a server socket 
 	// Lua args: server socket file descriptor (as integer)
-	// returns client socket file descriptor (as integer) and
+	// return client socket file descriptor (as integer) and
 	// the raw client address as a string,  or nil, errmsg
 	int cfd, sfd;
 	struct sockaddr_storage addr;
@@ -124,7 +126,7 @@ int ll_accept(lua_State *L) {
 int ll_connect(lua_State *L) {
 	// connect to a host
 	// Lua args: sockaddr as a binary string
-	// returns connection socket fd (as an integer) or nil, errmsg
+	// return connection socket fd (as an integer) or nil, errmsg
 	const char * addr;
 	size_t addr_len;
 	int cfd;
@@ -233,7 +235,7 @@ int ll_read(lua_State *L) {
 int ll_close(lua_State *L) {
 	// close a socket 
 	// Lua args: socket file descriptor (as integer)
-	// returns true on success or nil, errmsg
+	// return true on success or nil, errmsg
 	int fd;
 	int n;
 
@@ -249,6 +251,128 @@ int ll_close(lua_State *L) {
 	lua_pushboolean (L, 1);
 	return 1;
 } //ll_close
+
+//----------------------------------------------------------------------
+// UDP
+
+int ll_udpsocket(lua_State *L) {
+	// create a UDP socket. Optionnally bind it to an address
+	// if an address is provided.
+	// Lua arg: server sockaddr as a binary string (optional)
+	// return socket file descriptor as integer or nil, errmsg
+	//
+	const char * addr;
+	size_t addr_len;
+	int sfd;
+	int r;
+	int family;  // AF_INET=2, AF_INET6=10
+	addr = luaL_optlstring(L, 1, NULL, &addr_len);
+	family = (int) addr[0];  // first byte of sockaddr
+	sfd = socket(family, SOCK_DGRAM, 0); // 0 for default protocol
+	if (sfd < 0) { 
+		lua_pushnil (L);
+		lua_pushfstring (L, "udpsocket() error %d", errno);
+		return 2;      	
+	}
+	if (addr != NULL) {
+		// bind the socket to addr
+		r = bind(sfd, (struct sockaddr *) addr, addr_len);
+		if (r < 0) {
+			close(sfd);
+			lua_pushnil (L);
+			lua_pushfstring (L, "bind error %d", errno);
+			return 2;      	
+		}		
+	}
+	// success, return socket fd
+	lua_pushinteger (L, sfd);
+	return 1;
+} //ll_udpsocket
+
+int ll_sendto(lua_State *L) {
+	// Lua args:
+	//   fd: integer - socket descriptor
+	//   addr: raw address (sockaddr) of the recipient
+	//   s: string to send
+	int fd;
+	int n;
+	const char *addr;
+	size_t addr_len;
+	const char *s;
+	size_t slen;
+	int flags = 0;
+
+	fd = luaL_checkinteger(L, 1); // get socket fd
+	addr = luaL_checklstring(L, 2, &addr_len); // recipient addr
+	s = luaL_checklstring(L, 3, &slen); // string to write
+	if (slen > UDPMAXSIZE) {  
+		luaL_error(L, "sendto: string too large %d", slen);
+	}
+	n = sendto(fd, s, slen, flags, 
+		(const struct sockaddr *)addr, addr_len);
+	if (n < 0) {  // write error
+		lua_pushnil (L);
+		lua_pushfstring (L, "write error: %d  %d", n, errno);
+		return 2;      
+	}
+	//success, return number of bytes sent
+	lua_pushinteger (L, n);
+	return 1;
+} //ll_sendto
+
+int ll_recvfrom(lua_State *L) {
+	// receive message from a socket file descriptor
+	// Lua args:  
+	//    socket fd: integer
+	//    timeout: integer (in milliseconds)
+	//		(optional - defaults to DEFAULT_TIMEOUT)
+	// reads at most UDPMAXSIZE bytes. 
+	// return the received message as a string, and the sender 
+	// raw address (sockaddr), or (nil, error msg) on error or timeout
+	//
+	int fd;
+	int n;
+	char addr[ADDRMAXSIZE];
+	size_t addr_len = ADDRMAXSIZE;
+	char buf[UDPMAXSIZE];
+	struct pollfd pfd;
+	int timeout;
+	int flags = 0;
+
+	fd = luaL_checkinteger(L, 1);
+	timeout = luaL_optinteger(L, 2, DEFAULT_TIMEOUT); 
+
+	pfd.fd = fd;
+	pfd.events = POLLIN;
+	pfd.revents = 0;
+	n = poll(&pfd, (nfds_t) 1, timeout);
+	if (n < 0) {  // poll error
+		lua_pushnil (L);
+		lua_pushfstring (L, "poll error: %d  %d", n, errno);
+		return 2;      
+	}
+	if (n == 0) { // timeout
+		lua_pushnil (L);
+		lua_pushfstring (L, "recvfrom timeout");
+		return 2;      
+	}
+	n = recvfrom(fd, buf, UDPMAXSIZE, flags, 
+		(struct sockaddr *)addr, (socklen_t *)addr_len);
+	if (n < 0) {  // read error
+		lua_pushnil (L);
+		lua_pushfstring (L, "recvfrom error: %d  %d", n, errno);
+		return 2;      
+	}		
+	lua_pushlstring (L, (const char *)&buf, n);
+	lua_pushlstring (L, (const char *)&addr, addr_len);
+	return 1;	
+} //ll_recvfrom
+
+
+
+
+//----------------------------------------------------------------------
+// socket raw address, DNS interface
 
 int ll_getpeername(lua_State *L) {
 	// get the address of the peer connected to socket fd
@@ -396,6 +520,9 @@ static const struct luaL_Reg minisocklib[] = {
 	{"write", ll_write},
 	{"read", ll_read},
 	{"close", ll_close},
+	{"udpsocket", ll_udpsocket},
+	{"sendto", ll_sendto},
+	{"recvfrom", ll_recvfrom},
 	{"getsockname", ll_getsockname},
 	{"getpeername", ll_getpeername},
 	{"getaddrinfo", ll_getaddrinfo},
@@ -414,6 +541,9 @@ int luaopen_minisock (lua_State *L) {
 	lua_settable (L, -3);
     lua_pushliteral (L, "BUFSIZE");
 	lua_pushinteger (L, BUFSIZE); 
+	lua_settable (L, -3);
+    lua_pushliteral (L, "UDPMAXSIZE");
+	lua_pushinteger (L, UDPMAXSIZE); 
 	lua_settable (L, -3);
 	return 1;
 }
