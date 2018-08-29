@@ -446,7 +446,6 @@ int ll_getaddrinfo(lua_State *L) {
 	if (n) {
 		lua_pushnil (L);
 		lua_pushfstring(L, "getaddrinfo: %d %s", n, gai_strerror(n));
-		lua_pushlstring(L, (const char *)rp->ai_addr, rp->ai_addrlen);
 		return 2;
 	}
 	// build the table of the returned addresses
