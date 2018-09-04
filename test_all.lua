@@ -1,4 +1,4 @@
--- Copyright (c) 2017  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2018  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 
 --[[
@@ -24,7 +24,7 @@ test "hecsv"
 test "hezen"
 test "henacl"
 test "hegetopt"
-test "heserial"
+test "hepack"
 test "henat"
 test "henb"
 test "hebs"
