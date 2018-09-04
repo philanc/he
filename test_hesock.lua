@@ -1,13 +1,13 @@
 
 --[[
 
-=== test_msock
+=== test_hesock
 
 
 ]]
 
 local he = require "he"
-local msock = require "msock"
+local hesock = require "hesock"
 
 -- to be done!
 

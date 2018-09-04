@@ -28,6 +28,6 @@ test "hepack"
 test "henat"
 test "hebs"
 test "stx"
-test "msock"
+test "hesock"
 test "phs"
 
