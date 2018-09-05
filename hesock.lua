@@ -26,6 +26,10 @@ local list, strf, printf, repr = he.list, string.format, he.printf, he.repr
 local ssplit = he.split
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
 
+local function repr(x)
+	return strf("%q", x) 
+end
+
 local function log(...)
 	print(he.isodate():sub(10), ...)
 end
@@ -35,7 +39,8 @@ end
 
 local hesock = he.class()
 
-if he.windows then 
+--~ if he.windows then 
+if false then 
 	--------------------------------------------------------------------
 	-- windows / luasocket-based hesock
 	
@@ -95,8 +100,8 @@ else
 		return hesock{ fd = fd }
 	end
 
-	function hesock.bind(host, port, backlog)
-		local fd, err = minisock.bind(host, port, backlog)
+	function hesock.bind(sockaddr)
+		local fd, err = minisock.bind(sockaddr)
 		if not fd then return nil, err end
 		return hesock{ fd = fd }
 	end

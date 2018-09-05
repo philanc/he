@@ -11,6 +11,8 @@ local phs = require "phs"
 
 -- to be done!
 
+phs.serve()
+
 
 
 

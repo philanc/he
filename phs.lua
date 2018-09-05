@@ -5,7 +5,7 @@
 
 === phs - a tiny HTTP server
 
-based on msock socket interface.
+based on hesock socket interface.
 
 ]]
 
@@ -16,10 +16,13 @@ local he = require 'he'
 local hefs = require 'hefs'
 
 local list, strf, printf, repr = he.list, string.format, he.printf, he.repr
-local yield = coroutine.yield
 local ssplit = he.split
 local startswith, endswith = he.startswith, he.endswith
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
+
+local function repr(x)
+	return strf("%q", x) 
+end
 
 local function log(...)
 	print(he.isodate():sub(10), ...)
@@ -28,7 +31,7 @@ end
 ------------------------------------------------------------------------
 -- low-level tcp socket interface
 
-local msock = require "msock"
+local hesock = require "hesock"
 
 ------------------------------------------------------------------------
 -- HTTP SERVER 
@@ -39,8 +42,8 @@ local msock = require "msock"
 phs = {
 	-- default configuration
 	port = '3090',
-	-- bind_address = '*', -- for access from other hosts
-	bind_address = 'localhost', -- for local access only 
+	bind_host = 'localhost', -- for local access only 
+	localaddr = '\2\0\x0c\x12\127\0\0\1\0\0\0\0\0\0\0\0',
 	-- bind_address = '::1',    -- for ip6 localhost
 
 	wwwroot = '.', -- serve from the current directory
@@ -61,16 +64,16 @@ function phs.serve()
 	--	call serve_client() to process client request
 	--	rinse, repeat
 	local client, msg
-	local server = assert(msock.bind(phs.bind_address, phs.port))
-	log(strf("phs: bound to %s %d", msock.getserverinfo(server)))
+	local server = assert(hesock.bind(phs.localaddr))
+	log(strf("phs: bound to %s ", repr(phs.localaddr)))
 	while true do
 		if phs.must_exit or phs.must_reload then 
-			if client then msock.close(client); client = nil end
-			local r, msg = msock.close(server)
+			if client then hesock.close(client); client = nil end
+			local r, msg = hesock.close(server)
 			print("Server close:", r, msg)
 			os.exit(phs.must_exit and 1 or 0)
 		end
-		client, msg = msock.accept(server)
+		client, msg = hesock.accept(server)
 		if not client then
 			log("phs.serve(): accept() error", msg)
 		elseif phs.debug_mode then 
@@ -87,16 +90,16 @@ end--server()
 ------------------------------------------------------------------------
 -- serve client utilities -- receive request, headers, send response
 
-local function receive_request(bufread, vars)
+local function receive_request(client, vars)
 	-- get request first line
 	-- beware firefox "speculative connection" when hovering links!
 	--     => client will open connections and not send any request... 
-	local req, errmsg = bufread()
+	local req, errmsg = client:read()
 	if not req then return nil, errmsg end
 	local op, path = string.match(req, '(%a+)%s+(%S+)%s+(%S+)')
 	if not op then -- ignore silently
 		log("badrequest", req)
-		msock.close(client)
+		hesock.close(client)
 		return nil, "bad request"
 	end
 	vars.op = op:upper()
@@ -106,7 +109,7 @@ local function receive_request(bufread, vars)
 	return req
 end--receive_request
 
-local function receive_headers(bufread, vars)
+local function receive_headers(client, vars)
 -- process headers from a connection (borrowed from orbiter/luasocket)
 -- return headers table {headername=headervalue, ...} and remaining
 -- unread content of the read buffer if any
@@ -114,7 +117,7 @@ local function receive_headers(bufread, vars)
 -- with '_' to make them WSAPI compatible (e.g. HTTP_CONTENT_LENGTH)
 	local line, name, value, err
 	-- get first line
-	line = assert(bufread(), "receiving header 1st line")
+	line = assert(client:read(), "receiving header 1st line")
 	while line ~= "" do  -- headers go until a blank line is found
 --~ 		print('=', line)
 		-- get field-name and value
@@ -122,12 +125,12 @@ local function receive_headers(bufread, vars)
 		assert(name and value, "malformed reponse headers")
 		name = 'HTTP_'..name:upper():gsub('%-','_')
 		-- get next line (value may be folded)
-		line = bufread()
+		line = client:read()
 		if not line then error(err .. " (receiving header line)") end
 		-- unfold any folded values
 		while line:find("^[ \t]") do
 			value = value .. line
-			line = assert(bufread(), "receiving header continuation line")
+			line = assert(client:read(), "receiving header continuation line")
 		end
 		-- save pair in table, concat values for existing names
 		if vars[name] then 
@@ -178,7 +181,7 @@ local function send_response(client, resp)
 	resp.content = resp.content or ""
 	local h = list.concat(resp.headers, "\r\n")
 	local data = statusline .. "\r\n".. h .. "\r\n\r\n" .. resp.content
-	return msock.write(client, data)	
+	return hesock.write(client, data)	
 end--send_response
 
 function phs.serve_client(client)
@@ -192,24 +195,22 @@ function phs.serve_client(client)
 	--
 	local vars = {} -- request variables (will be passed to the handler)
 	-- log info about the client
-	vars.client_ip, vars.client_port = msock.getclientinfo(client)
+	vars.client_ip, vars.client_port = hesock.getclientinfo(client)
 	log("serve client", vars.client_ip, vars.client_port)
-	-- create the buffered read function
-	local bufread = msock.bufreader(client) 
 	-- get request headers and content if any
-	local req, msg = receive_request(bufread, vars)
+	local req, msg = receive_request(client, vars)
 	if not req then 
 		-- assume speculative connection (or other client issue)
-		return msock.close(client)
+		return hesock.close(client)
 	end	
-	vars, errmsg = receive_headers(bufread, vars)
+	vars, errmsg = receive_headers(client, vars)
 	if not vars then 
 		-- assume other client issue. ignore it
-		return msock.close(client) 
+		return hesock.close(client) 
 	end
 	if vars.op == 'POST' then -- get content
 		local size = tonumber(vars.HTTP_CONTENT_LENGTH)
-		vars.content = bufread(size)
+		vars.content = client:read(size)
 		-- in case of error, vars.content will be nil (not much to do)
 	end
 	--
@@ -228,7 +229,7 @@ function phs.serve_client(client)
 	--
 	-- send the response to the client
 	send_response(client, resp)
-	msock.close(client)
+	hesock.close(client)
 	return
 end--serve_client()
 
