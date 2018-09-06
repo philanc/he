@@ -162,7 +162,7 @@ local function unpacktable(s, i)
 	end--while
 end
 
-local function unpack(s, i)
+function unpack(s, i) -- declared local above
 	-- unpack element in s at index i
 	-- return element and next position in s
 	i = i or 1
