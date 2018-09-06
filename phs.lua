@@ -70,8 +70,8 @@ function phs.serve()
 		if phs.must_exit or phs.must_reload then 
 			if client then hesock.close(client); client = nil end
 			local r, msg = hesock.close(server)
-			print("Server close:", r, msg)
-			os.exit(phs.must_exit and 1 or 0)
+			log("phs closed:", r, msg)
+			return(phs.must_exit and 1 or 0)
 		end
 		client, msg = hesock.accept(server)
 		if not client then

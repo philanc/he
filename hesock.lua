@@ -146,7 +146,7 @@ else
 					return l
 				else -- NL not found. read more bytes into buf
 					local b, msg = minisock.read(so.fd)
-					print("READ", b and #b)
+--~ 					print("READ", b and #b)
 					if not b then return nil, msg end
 					if #b == 0 then return nil, "EOF" end
 					so.buf = so.buf:sub(so.bi) .. b
