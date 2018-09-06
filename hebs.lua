@@ -17,7 +17,7 @@ sig and blob length are uint32 (4 bytes, little endian)
 db = hebs3()
 db:openfile(filename)
 db:readblob(bx) => blob      readblob starting at offset bx
-db:readprevblob(ex) => blob  read blob ending at offset ex
+db:readprevblob(ex) => blob, bx  read blob ending at offset ex
 db:writeblob(blob) => bx     append blob at end of file, return blob offset
 db:flush()
 db:close()
@@ -39,8 +39,8 @@ local function px(s, ln) ln = ln or 32; print(stohex(s, ln)) end
 local function prf(...) print(string.format(...)) end
 
 ------------------------------------------------------------------------
+-- low level functions
 
---~ local BSIG = "\x02\x02\x02\x02"
 local BSIG = 0x02020202
 
 hebs3 = he.class()
