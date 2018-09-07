@@ -7,6 +7,32 @@
 
 based on hesock socket interface.
 
+
+functions:
+
+-- main server loop
+serve()  
+
+-- request utilities
+url_escape(s)
+url_unescape(s)
+parse_url(url)
+parse_urlencoded(data)
+parse_multipart(data)
+
+-- response utilities
+add_header(resp, name, value)
+resp_content(content, mimetype)
+resp_html(content)
+resp_redirect(href, status) 
+resp_error(status, msg)
+resp_notfound(path)
+resp_badrequest(req)
+guess_mimetype(fpath)
+get_fullpath(fname)
+serve_file(path) 
+
+
 ]]
 
 ------------------------------------------------------------------------
@@ -34,12 +60,9 @@ end
 local hesock = require "hesock"
 
 ------------------------------------------------------------------------
--- HTTP SERVER 
-------------------------------------------------------------------------
+-- phs, the module object
 
--- phs, the root server object
-
-phs = {
+local phs = {
 	-- default configuration
 	port = '3090',
 	bind_host = 'localhost', -- for local access only 
@@ -50,41 +73,12 @@ phs = {
 	rootdefault = '/index.html',
 	-- server state
 	version = 'phs.03',
-	must_exit = false,
-	must_reload = false,
+	must_exit = nil,  -- server main loop exits if true 
+	                  -- handlers can set it to an exit code
+			  -- convention: 0 for exit, 1 for exit+reload
 	debug_mode = true,
 	log = log,
 }
-
--- the server main loop
-	
-function phs.serve()
-	-- server main loop:
-	-- 	wait for a client
-	--	call serve_client() to process client request
-	--	rinse, repeat
-	local client, msg
-	local server = assert(hesock.bind(phs.localaddr))
-	log(strf("phs: bound to %s ", repr(phs.localaddr)))
-	while true do
-		if phs.must_exit or phs.must_reload then 
-			if client then hesock.close(client); client = nil end
-			local r, msg = hesock.close(server)
-			log("phs closed:", r, msg)
-			return(phs.must_exit and 1 or 0)
-		end
-		client, msg = hesock.accept(server)
-		if not client then
-			log("phs.serve(): accept() error", msg)
-		elseif phs.debug_mode then 
---~ 			log("serving client", client)
-			phs.serve_client(client) -- serve and close the connection
---~ 			log("client closed.", client)
-		else
-			pcall(phs.serve_client, client)
-		end
-	end--while
-end--server()
 
 
 ------------------------------------------------------------------------
@@ -98,23 +92,24 @@ local function receive_request(client, vars)
 	if not req then return nil, errmsg end
 	local op, path = string.match(req, '(%a+)%s+(%S+)%s+(%S+)')
 	if not op then -- ignore silently
-		log("badrequest", req)
+		phs.log("badrequest", req)
 		hesock.close(client)
 		return nil, "bad request"
 	end
 	vars.op = op:upper()
 	vars.reqpath = path
 	vars.req = req
-	log(op, path)
+	phs.log(op, path)
 	return req
 end--receive_request
 
 local function receive_headers(client, vars)
--- process headers from a connection (borrowed from orbiter/luasocket)
--- return headers table {headername=headervalue, ...} and remaining
--- unread content of the read buffer if any
--- note that the variables names are uppercased and have '-' replaced 
--- with '_' to make them WSAPI compatible (e.g. HTTP_CONTENT_LENGTH)
+	-- process headers from a connection 
+	-- (borrowed from orbiter/luasocket)
+	-- return headers table {headername=headervalue, ...} and remaining
+	-- unread content of the read buffer if any
+	-- note that the variables names are uppercased and have '-' replaced
+	-- with '_' to make them WSAPI compatible (e.g. HTTP_CONTENT_LENGTH)
 	local line, name, value, err
 	-- get first line
 	line = assert(client:read(), "receiving header 1st line")
@@ -130,7 +125,8 @@ local function receive_headers(client, vars)
 		-- unfold any folded values
 		while line:find("^[ \t]") do
 			value = value .. line
-			line = assert(client:read(), "receiving header continuation line")
+			line = assert(client:read(), 
+				"receiving header continuation line")
 		end
 		-- save pair in table, concat values for existing names
 		if vars[name] then 
@@ -184,7 +180,11 @@ local function send_response(client, resp)
 	return hesock.write(client, data)	
 end--send_response
 
-function phs.serve_client(client)
+------------------------------------------------------------------------
+-- HTTP SERVER 
+------------------------------------------------------------------------
+
+local function serve_client(client)
 	-- process a client request:
 	--    get a request from the client
 	--    find a suitable handler in phs.request_dispatcher
@@ -196,7 +196,7 @@ function phs.serve_client(client)
 	local vars = {} -- request variables (will be passed to the handler)
 	-- log info about the client
 	vars.client_ip, vars.client_port = hesock.getclientinfo(client)
-	log("serve client", vars.client_ip, vars.client_port)
+	phs.log("serve client", vars.client_ip, vars.client_port)
 	-- get request headers and content if any
 	local req, msg = receive_request(client, vars)
 	if not req then 
@@ -232,6 +232,41 @@ function phs.serve_client(client)
 	hesock.close(client)
 	return
 end--serve_client()
+
+-- the server main loop
+	
+function phs.serve()
+	-- server main loop:
+	-- 	wait for a client
+	--	call serve_client() to process client request
+	--	rinse, repeat
+	local client, msg
+	local server = assert(hesock.bind(phs.localaddr))
+	phs.log(strf("phs: bound to %s ", repr(phs.localaddr)))
+	while true do
+		if phs.must_exit then 
+			if client then hesock.close(client); client = nil end
+			local r, msg = hesock.close(server)
+			phs.log("phs closed:", r, msg)
+			local exitcode = phs.must_exit
+			phs.must_exit = nil
+			return exitcode
+		end
+		client, msg = hesock.accept(server)
+		if not client then
+			phs.log("phs.serve(): accept() error", msg)
+		elseif phs.debug_mode then 
+--~ 			phs.log("serving client", client)
+			-- serve and close the connection
+			serve_client(client) 
+--~ 			phs.log("client closed.", client)
+		else
+			pcall(serve_client, client)
+		end
+	end--while
+end--server()
+
+
 
 
 ------------------------------------------------------------------------
@@ -472,12 +507,12 @@ function phs.ht.no_handler(vars)
 end
 
 function phs.ht.exit_server(vars)
-	phs.must_exit = true
+	phs.must_exit = 0
 	return phs.resp_content("Server shutdown.")
 end
 
 function phs.ht.reload_server(vars)
-	phs.must_reload = true
+	phs.must_exit = 1
 	return phs.resp_html('<p>Server reload. Go to <a href="/">index page</a>')
 end
 
