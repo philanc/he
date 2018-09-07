@@ -32,6 +32,13 @@ guess_mimetype(fpath)
 get_fullpath(fname)
 serve_file(path) 
 
+-- handlers
+
+handler signature:  
+	h(vars) => response, where response is a table:  
+	response = {status=int, headers={...}, content="..."}
+
+responses are typically generated with the 'resp_*' utility functions.
 
 ]]
 
@@ -62,23 +69,36 @@ local hesock = require "hesock"
 ------------------------------------------------------------------------
 -- phs, the module object
 
-local phs = {
-	-- default configuration
-	port = '3090',
-	bind_host = 'localhost', -- for local access only 
-	localaddr = '\2\0\x0c\x12\127\0\0\1\0\0\0\0\0\0\0\0',
-	-- bind_address = '::1',    -- for ip6 localhost
+local phs = {}
 
-	wwwroot = '.', -- serve from the current directory
-	rootdefault = '/index.html',
-	-- server state
-	version = 'phs.03',
-	must_exit = nil,  -- server main loop exits if true 
-	                  -- handlers can set it to an exit code
-			  -- convention: 0 for exit, 1 for exit+reload
-	debug_mode = true,
-	log = log,
-}
+phs.VERSION = "0.3"
+
+
+------------------------------------------------------------------------
+-- default configuration
+
+-- phs.port = '3090'
+-- phs.bind_host = 'localhost'
+-- bind raw address:
+phs.localaddr = '\2\0\x0c\x12\127\0\0\1\0\0\0\0\0\0\0\0'
+-- bind_address = '::1'    -- for ip6 localhost
+
+phs.wwwroot = '.' -- serve from the current directory
+phs.rootdefault = '/index.html'
+
+-- server state
+phs.must_exit = nil  -- server main loop exits if true 
+		     -- handlers can set it to an exit code
+		     -- convention: 0 for exit, 1 for exit+reload
+
+-- debug_mode
+-- true => request handler is executed without pcall()
+--	   a handler error crashes the server
+phs.debug_mode = true
+
+-- server log function
+-- default is to print messages to stdout.
+phs.log = log  
 
 
 ------------------------------------------------------------------------
