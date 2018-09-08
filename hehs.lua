@@ -3,7 +3,7 @@
 ------------------------------------------------------------------------
 --[[ 
 
-=== hehs - a tiny HTTP server
+=== hehs - a tiny HTTP server library
 
 based on hesock socket interface.
 
@@ -71,7 +71,7 @@ local hesock = require "hesock"
 
 local hehs = {}
 
-hehs.VERSION = "0.3"
+hehs.VERSION = "0.5"
 
 
 ------------------------------------------------------------------------
@@ -84,7 +84,7 @@ hehs.localaddr = '\2\0\x0c\x12\127\0\0\1\0\0\0\0\0\0\0\0'
 -- bind_address = '::1'    -- for ip6 localhost
 
 hehs.wwwroot = '.' -- serve from the current directory
-hehs.rootdefault = '/index.html'
+hehs.home_default = '/index.html'
 
 -- server state
 hehs.must_exit = nil  -- server main loop exits if true 
@@ -545,7 +545,7 @@ function hehs.serve_static_files(vars)
 end
 
 function hehs.home_page(vars)
-	return hehs.serve_file(vars.path)
+	return hehs.serve_file(hehs.home_default)
 end
 
 
