@@ -1,18 +1,18 @@
 
 --[[
 
-=== test_phs
+=== test_hehs
 
 
 ]]
 
 local he = require "he"
-local phs = require "phs"
+local hehs = require "hehs"
 
 -- to be fixed!
 cmd = " (sleep 1 ; wget -q localhost:3090/exit_server ; rm exit_server ) & "
 os.execute(cmd)
-phs.serve()
+hehs.serve()
 
 
 

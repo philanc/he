@@ -1,9 +1,9 @@
--- Copyright (c) 2016  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2018  Phil Leblanc  -- see LICENSE file
 
 ------------------------------------------------------------------------
 --[[ 
 
-=== phs - a tiny HTTP server
+=== hehs - a tiny HTTP server
 
 based on hesock socket interface.
 
@@ -67,38 +67,38 @@ end
 local hesock = require "hesock"
 
 ------------------------------------------------------------------------
--- phs, the module object
+-- hehs, the module object
 
-local phs = {}
+local hehs = {}
 
-phs.VERSION = "0.3"
+hehs.VERSION = "0.3"
 
 
 ------------------------------------------------------------------------
 -- default configuration
 
--- phs.port = '3090'
--- phs.bind_host = 'localhost'
+-- hehs.port = '3090'
+-- hehs.bind_host = 'localhost'
 -- bind raw address:
-phs.localaddr = '\2\0\x0c\x12\127\0\0\1\0\0\0\0\0\0\0\0'
+hehs.localaddr = '\2\0\x0c\x12\127\0\0\1\0\0\0\0\0\0\0\0'
 -- bind_address = '::1'    -- for ip6 localhost
 
-phs.wwwroot = '.' -- serve from the current directory
-phs.rootdefault = '/index.html'
+hehs.wwwroot = '.' -- serve from the current directory
+hehs.rootdefault = '/index.html'
 
 -- server state
-phs.must_exit = nil  -- server main loop exits if true 
+hehs.must_exit = nil  -- server main loop exits if true 
 		     -- handlers can set it to an exit code
 		     -- convention: 0 for exit, 1 for exit+reload
 
 -- debug_mode
 -- true => request handler is executed without pcall()
 --	   a handler error crashes the server
-phs.debug_mode = true
+hehs.debug_mode = true
 
 -- server log function
 -- default is to print messages to stdout.
-phs.log = log  
+hehs.log = log  
 
 
 ------------------------------------------------------------------------
@@ -112,14 +112,14 @@ local function receive_request(client, vars)
 	if not req then return nil, errmsg end
 	local op, path = string.match(req, '(%a+)%s+(%S+)%s+(%S+)')
 	if not op then -- ignore silently
-		phs.log("badrequest", req)
+		hehs.log("badrequest", req)
 		hesock.close(client)
 		return nil, "bad request"
 	end
 	vars.op = op:upper()
 	vars.reqpath = path
 	vars.req = req
-	phs.log(op, path)
+	hehs.log(op, path)
 	return req
 end--receive_request
 
@@ -183,7 +183,7 @@ end
 
 local function get_statusline(status)
 	if type(status) == "number" then status = get_status(status) end
-	return strf("HTTP/1.1 %s\r\nServer: %s", status, phs.version)
+	return strf("HTTP/1.1 %s\r\nServer: %s", status, hehs.version)
 end
 
 local function send_response(client, resp)
@@ -207,7 +207,7 @@ end--send_response
 local function serve_client(client)
 	-- process a client request:
 	--    get a request from the client
-	--    find a suitable handler in phs.request_dispatcher
+	--    find a suitable handler in hehs.request_dispatcher
 	--    call the handler which returns a response
 	--    send the response to the client
 	--    close the client connection
@@ -216,7 +216,7 @@ local function serve_client(client)
 	local vars = {} -- request variables (will be passed to the handler)
 	-- log info about the client
 	vars.client_ip, vars.client_port = hesock.getclientinfo(client)
-	phs.log("serve client", vars.client_ip, vars.client_port)
+	hehs.log("serve client", vars.client_ip, vars.client_port)
 	-- get request headers and content if any
 	local req, msg = receive_request(client, vars)
 	if not req then 
@@ -238,13 +238,13 @@ local function serve_client(client)
 	-- 1st name in path is the name of the handler
 	-- the handler is called with vars and the rest of path
 	-- eg. url "/a/b/c" will be handled by calling handler 'a':
-	--      phs.ht["a"](vars, "b/c")
-	-- if the handler is not found, phs.ht.default() is used
+	--      hehs.ht["a"](vars, "b/c")
+	-- if the handler is not found, hehs.ht.default() is used
 	-- (remember path starts with a '/')
 	local pt = ssplit(vars.reqpath, '/', 2)
 	local hname = pt[2]
 	vars.path = pt[3] or ""
-	local handler = phs.ht[hname] or phs.ht.no_handler
+	local handler = hehs.ht[hname] or hehs.ht.no_handler
 	local resp = handler(vars)
 	--
 	-- send the response to the client
@@ -255,31 +255,31 @@ end--serve_client()
 
 -- the server main loop
 	
-function phs.serve()
+function hehs.serve()
 	-- server main loop:
 	-- 	wait for a client
 	--	call serve_client() to process client request
 	--	rinse, repeat
 	local client, msg
-	local server = assert(hesock.bind(phs.localaddr))
-	phs.log(strf("phs: bound to %s ", repr(phs.localaddr)))
+	local server = assert(hesock.bind(hehs.localaddr))
+	hehs.log(strf("hehs bound to %s ", repr(hehs.localaddr)))
 	while true do
-		if phs.must_exit then 
+		if hehs.must_exit then 
 			if client then hesock.close(client); client = nil end
 			local r, msg = hesock.close(server)
-			phs.log("phs closed:", r, msg)
-			local exitcode = phs.must_exit
-			phs.must_exit = nil
+			hehs.log("hehs closed", r, msg)
+			local exitcode = hehs.must_exit
+			hehs.must_exit = nil
 			return exitcode
 		end
 		client, msg = hesock.accept(server)
 		if not client then
-			phs.log("phs.serve(): accept() error", msg)
-		elseif phs.debug_mode then 
---~ 			phs.log("serving client", client)
+			hehs.log("hehs.serve(): accept() error", msg)
+		elseif hehs.debug_mode then 
+--~ 			hehs.log("serving client", client)
 			-- serve and close the connection
 			serve_client(client) 
---~ 			phs.log("client closed.", client)
+--~ 			hehs.log("client closed.", client)
 		else
 			pcall(serve_client, client)
 		end
@@ -298,7 +298,7 @@ end--server()
 ------------------------------------------------------------------------
 -- encoded content - application/x-www-form-urlencoded
 
-function phs.url_escape (str)
+function hehs.url_escape (str)
 	-- (url_escape and url_unescape stolen from cgilua)
 	str = string.gsub (str, "\n", "\r\n")
 	str = string.gsub (str, "([^0-9a-zA-Z ])", -- locale independent
@@ -308,7 +308,7 @@ function phs.url_escape (str)
 	return str
 end
 
-function phs.url_unescape (str)
+function hehs.url_unescape (str)
 	str = string.gsub (str, "+", " ")
 	str = string.gsub (str, "%%(%x%x)", 
 		function(h) return string.char(tonumber(h,16)) end)
@@ -320,14 +320,14 @@ end
 --    "AA=aa&BB=bbb+bb&CC=punct%3A+%2C.%2F%21@%23"
 
 
-function phs.parse_urlencoded(data)
+function hehs.parse_urlencoded(data)
 	-- parse content with type "application/x-www-form-urlencoded"
 	-- ie. "name1=val1&name2=val2&..." where all names 
 	-- and values are url-escaped
 	-- return a table {argname=argvalue, ...}
 	-- mutlivalued arguments are returned as a list:
 	--   eg. {..., argname={val1, val2, val3}, ...}
-	local unesc = phs.url_unescape
+	local unesc = hehs.url_unescape
 	local t = {}
 	local function insval(k, v)
 		k = unesc(k);  v = unesc(v) 
@@ -339,14 +339,14 @@ function phs.parse_urlencoded(data)
 	return t
 end
 
-function phs.parse_url(url)
+function hehs.parse_url(url)
 	-- assume simple structure: <path>?<urlencoded-params>
 	-- eg url = "/p1/p2/p3?a=aa&b=&c=cc+cc"
 	--    returns "/p1/p2/p3", {a="aa", b="", c="cc cc"}
 	local path, data, args
 	if url:find("%?") then 
 		path, data = url:match("^(.-)%?(.+)$")
-		args = phs.parse_urlencoded(data)
+		args = hehs.parse_urlencoded(data)
 	else
 		path = url
 		args = {}
@@ -359,7 +359,7 @@ end
 
 local repr=he.repr
 
-function phs.parse_multipart(data)
+function hehs.parse_multipart(data)
 	-- assume boundary is the first line (incl crlf)
 	local datasize = #data
 	local i, j, k, jh, kh --indices
@@ -405,54 +405,54 @@ end
 -- prepare responses
 
 
-function phs.add_header(resp, name, value)
+function hehs.add_header(resp, name, value)
 	resp.headers = resp.headers or {}
 	list.insert(resp.headers, strf("%s: %s", name, value))
 	return resp
 end
 
-function phs.resp_content(content, mimetype)
+function hehs.resp_content(content, mimetype)
 	local resp = { status=200 }
 	if type(content) ~= "string" then content = tostring(content) end
 	mimetype = mimetype or "text/plain"
 	resp.status = 200
-	phs.add_header(resp, 'Content-Type', mimetype)
-	phs.add_header(resp, 'Content-Length', tostring(#content))
+	hehs.add_header(resp, 'Content-Type', mimetype)
+	hehs.add_header(resp, 'Content-Length', tostring(#content))
 	resp.content = content
 	return resp
 end
 
-function phs.resp_html(content)
-	return phs.resp_content(content, "text/html")
+function hehs.resp_html(content)
+	return hehs.resp_content(content, "text/html")
 end
 
-function phs.resp_redirect(href, status) 
+function hehs.resp_redirect(href, status) 
 	-- default redirect status is 302
 	status = status or 302
 	local resp = {}
 	resp.status = get_status(status)
 	local fmt
 	resp.content = status .. " - Redirect to: " .. href
-	phs.add_header(resp, 'Location', href)
+	hehs.add_header(resp, 'Location', href)
 	return resp
 end	
 	
-function phs.resp_error(status, msg)
+function hehs.resp_error(status, msg)
 	local resp = {}
 	local status = get_status(status)
 	resp.status = status
 	resp.content = msg and (status .. " - " .. msg) or status
-	phs.add_header(resp, 'Content-Type', 'text/plain')
-	phs.add_header(resp, 'Content-Length', tostring(#resp.content))
+	hehs.add_header(resp, 'Content-Type', 'text/plain')
+	hehs.add_header(resp, 'Content-Length', tostring(#resp.content))
 	return resp
 end
 
-function phs.resp_notfound(path)
-	return phs.resp_error(404, path)
+function hehs.resp_notfound(path)
+	return hehs.resp_error(404, path)
 end
 
-function phs.resp_badrequest(req)
-	return phs.resp_error(400, req)
+function hehs.resp_badrequest(req)
+	return hehs.resp_error(400, req)
 end
 
 
@@ -460,7 +460,7 @@ end
 ------------------------------------------------------------------------
 -- mime types, serve file
 
-phs.mimetypes = {
+hehs.mimetypes = {
 	["htm"] = "text/html",
 	["html"] = "text/html",
 	["css"] = "text/css",
@@ -478,33 +478,33 @@ phs.mimetypes = {
 	-- for all other extensions, default is "application/octet-stream"
 }	
 
-function phs.guess_mimetype(fpath)
+function hehs.guess_mimetype(fpath)
 	local ext = he.fileext(fpath)
 	ext = ext:lower()
-	local mimetype = phs.mimetypes[ext] or "application/octet-stream"
+	local mimetype = hehs.mimetypes[ext] or "application/octet-stream"
 	return mimetype
 end
 
-function phs.get_fullpath(fname)
+function hehs.get_fullpath(fname)
 	-- return the absolute pathname for a relative path 'fname'
 	if fname:find("%.%.") then return nil, "invalid pathname" end
 	if fname:match"^/" then 
-		fname = phs.wwwroot .. fname
+		fname = hehs.wwwroot .. fname
 	else 
-		fname = phs.wwwroot .. "/" .. fname
+		fname = hehs.wwwroot .. "/" .. fname
 	end
 	return fname
 end
 
-function phs.serve_file(path) 
+function hehs.serve_file(path) 
 	-- serve static files
-	local fpath = phs.get_fullpath(path)
+	local fpath = hehs.get_fullpath(path)
 	if fpath and hefs.fexists(fpath) and hefs.isfile(fpath) then
-		local mimetype = phs.guess_mimetype(fpath)
+		local mimetype = hehs.guess_mimetype(fpath)
 		local content = he.fget(fpath)
-		return phs.resp_content(content, mimetype)
+		return hehs.resp_content(content, mimetype)
 	else
-		return phs.resp_notfound(path)
+		return hehs.resp_notfound(path)
 	end
 end
 
@@ -514,46 +514,46 @@ end
 ------------------------------------------------------------------------
 
 
-phs.ht = {}  -- the request handler table
+hehs.ht = {}  -- the request handler table
 
 -- the handler signature must be :  
 --      h(vars) => resp = {status=n, headers={...}, content}
--- correctly formatted reponses are generated by phs utility functions
--- (phs.resp_content, resp_error, resp_notfound, ...)
+-- correctly formatted reponses are generated by hehs utility functions
+-- (hehs.resp_content, resp_error, resp_notfound, ...)
 
-function phs.ht.no_handler(vars)
+function hehs.ht.no_handler(vars)
 	-- default handler, called when no handler found.
-	return phs.resp_notfound("no handler for " .. vars.reqpath)
+	return hehs.resp_notfound("no handler for " .. vars.reqpath)
 end
 
-function phs.ht.exit_server(vars)
-	phs.must_exit = 0
-	return phs.resp_content("Server shutdown.")
+function hehs.ht.exit_server(vars)
+	hehs.must_exit = 0
+	return hehs.resp_content("Server shutdown.")
 end
 
-function phs.ht.reload_server(vars)
-	phs.must_exit = 1
-	return phs.resp_html('<p>Server reload. Go to <a href="/">index page</a>')
+function hehs.ht.reload_server(vars)
+	hehs.must_exit = 1
+	return hehs.resp_html('<p>Server reload. Go to <a href="/">index page</a>')
 end
 
-function phs.ht.f(vars) -- serve static files - url: /f/path/of/file
-	return phs.serve_file(vars.path)
+function hehs.ht.f(vars) -- serve static files - url: /f/path/of/file
+	return hehs.serve_file(vars.path)
 end
 
-function phs.ht.index(vars)
+function hehs.ht.index(vars)
 	local mimetype = "text/html"
 	local content = he.fget('index.html')
-	return phs.resp_content(content, mimetype)
+	return hehs.resp_content(content, mimetype)
 end
 
-phs.ht[""] = phs.ht.index -- default action for path = '/'
+hehs.ht[""] = hehs.ht.index -- default action for path = '/'
 
 ------------------------------------------------------------------------
-return phs
+return hehs
 
 
 
---[===[  phs notes
+--[===[  hehs notes
 
 ---
 

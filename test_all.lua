@@ -29,5 +29,5 @@ test "henat"
 test "hebs"
 test "stx"
 test "hesock"
-test "phs"
+test "hehs"
 
