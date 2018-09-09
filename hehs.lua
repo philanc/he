@@ -474,7 +474,7 @@ hehs.mimetypes = {
 	["json"] = "text/plain",
 	["lua"] = "text/plain",
 	["i"] = "text/plain",
-	[""] = "text/plain",
+	[""] = "application/octet-stream",
 	-- for all other extensions, default is "application/octet-stream"
 }	
 
