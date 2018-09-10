@@ -172,7 +172,12 @@ else
 				else -- not enough, read more
 					local b, msg = minisock.read(so.fd)
 					if not b then return nil, msg end
-					if #b == 0 then return nil, "EOF" end
+					if #b == 0 then 
+						--EOF, not enough bytes
+						-- return what we have
+						nbs = table.concat(bt)
+						return nbs
+					end
 					nr = nr + #b
 					table.insert(bt, b)
 				end
