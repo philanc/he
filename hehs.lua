@@ -206,7 +206,7 @@ end--send_response
 
 local function serve_client(client)
 	-- process a client request:
-	--    get a request from the client
+	--    get a request from the client socket
 	--    find a suitable handler in hehs.request_dispatcher
 	--    call the handler which returns a response
 	--    send the response to the client
@@ -526,6 +526,14 @@ function hehs.no_handler(vars)
 	return hehs.resp_notfound("no handler for " .. vars.reqpath)
 end
 
+function hehs.dbg_raw_echo(vars)
+	if vars.op == "GET" then
+		return hehs.resp_content(vars.reqpath)
+	else
+		return hehs.resp_content(vars.content)
+	end
+end
+
 function hehs.dbg_server(vars)
 	if vars.path == "exit" then
 		hehs.must_exit = 0
@@ -564,6 +572,7 @@ hehs.handlers = {}
 hehs.handlers[""] = hehs.home_page -- 		-- default for /
 hehs.handlers.server = hehs.dbg_server  	-- /server/<cmd>
 hehs.handlers.f = hehs.serve_static_files	-- /f/path/to/file
+hehs.handlers.echo = hehs.dbg_raw_echo		-- /echo
 
 ------------------------------------------------------------------------
 return hehs
