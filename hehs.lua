@@ -527,11 +527,12 @@ function hehs.no_handler(vars)
 end
 
 function hehs.dbg_raw_echo(vars)
-	if true then return hehs.resp_content("HELLO ZZZ") end
+--~ 	if true then return hehs.resp_content("HELLO ZZZ") end
 	if vars.op == "GET" then
 		return hehs.resp_content(vars.reqpath)
 	else
-		return hehs.resp_content(he.t2s(vars))
+--~ 		return hehs.resp_content(he.t2s(vars))
+		return hehs.resp_content(vars.content)
 	end
 end
 
