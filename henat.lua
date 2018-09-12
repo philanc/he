@@ -115,6 +115,52 @@ end
 
 	
 ------------------------------------------------------------------------
+--[[  notes
+
+===  180912    run a cmd with a timeout
+
+-- on linux:  use 'timeout'
+
+gnu coreutils timeout:
+	timeout 10 cmd args
+	# run cmd with a 10 secs timeout
+	=> if cmd times out, return with $? == 124
+	default signal is 15 (SIGTERM)
+	timeout -k 10 cmd args
+	=> if time out, send kill signal (9). $? == 128 + 9 == 137
+
+busybox timeout
+	timeout -t 10 cmd args
+	send default signal 15 (SIGTERM)
+	=> if cmd times out, return with $? == 128 + 15 == 143
+	timeout -t 10 -s 9 cmd args
+	send kill signal (9)
+	=> if cmd times out, return with $? == 128 + 9 == 137
+	example:
+		timeout -t 1 sleep 2 ; echo $?
+
+... why 124 for coreutils timeout ?!?
+
+-- on windows: poor man's timeout
+	start yourprogram.exe
+	timeout /t 10
+	taskkill /im yourprogram.exe
+
+should try to identify program with pid!! exercise left to the reader!
+
+if timeout not avail (eg before vista), can use
+	ping 127.0.0.1 -n 10
+
+spawn a cmd. echo $! displays the pid of 'sleep 10'
+	/ut/s/busybox/timeout -t 1 -s 9 sh -c 'sleep 10 & echo $!' ; echo  $?
+	timeout applies only to the spawning time, not the 'sleep 10'
+ 
+ 
+
+
+
+]]
+------------------------------------------------------------------------
 --[[  zip, unzip, ziplist
 
 unzip zipinfo format  (same for linux and win32??)
