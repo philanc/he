@@ -9,12 +9,19 @@
 ]]
 
 ------------------------------------------------------------------------
+-- tmp path adjustment
+package.path = package.path .. ";../?.lua"
+
+------------------------------------------------------------------------
 -- imports and local definitions
 
 local he = require 'he'
 local hefs = require 'hefs'
+local hezen = require 'hezen'
+local hepack = require 'hepack'
 
 local list, strf, printf, repr = he.list, string.format, he.printf, he.repr
+local spack, sunpack = string.pack, string.unpack
 local ssplit = he.split
 local startswith, endswith = he.startswith, he.endswith
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
@@ -26,10 +33,6 @@ end
 local function log(...)
 	print(he.isodate():sub(10), ...)
 end
-
-------------------------------------------------------------------------
--- tmp path adjustment
-package.path = package.path .. ";../?.lua"
 
 
 
@@ -118,8 +121,55 @@ end
 
 
 ------------------------------------------------------------------------
+-- rb handler
+
+local function encrypt(key, nonce, m, ctr)
+	-- encrypt m with key, nonce
+	-- return the encrypted message c prefixed with the nonce
+	-- => #c = 16 + 8 + #m + 16 = #m + 40
+	--
+	return hezen.morus_encrypt(key, nonce, m, ctr)
+end
+
+local function decrypt(key, nonce, c, ctr)
+	-- return decrypted message, nonce or nil errmsg if MAC error
+	return hezen.morus_decrypt(key, nonce, c, ctr)
+end
+
+local function rb_action(req)
+	local resp = req .. " YOYO!!!"
+	return resp
+end
+
+local function rb_handler(vars)
+	local msg, ereq, req, resp, eresp, nonce, ctr
+	local ereq = vars.content
+	nonce, ctr = sunpack("<c16I8", ereq)
+	ereq = ereq:sub(25)
+	local req, msg = decrypt(phs.key, nonce, ereq, ctr)
+	if not req then 
+		return phs.resp_error(400, "invalid req") 
+	end
+	local resp, msg = rb_action(req)
+	eresp = encrypt(phs.key, nonce, resp, ctr + 1)
+	return phs.resp_content(eresp)
+end
+
+phs.handlers.rb = rb_handler
+
+
+
+	
+
+
+
+
+------------------------------------------------------------------------
 -- run 
 
+--~ he.pp(hezen)
+
+phs.key = ('k'):rep(32)
 
 phs.serve()
 

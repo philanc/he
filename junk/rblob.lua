@@ -20,9 +20,11 @@ local he = require 'he'
 local hefs = require 'hefs'
 local hesock = require 'hesock'
 local hehs = require 'hehs'
+local hezen = require 'hezen'
 local hepack = require 'hepack'
 
 local list, strf, printf, repr = he.list, string.format, he.printf, he.repr
+local spack, sunpack = string.pack, string.unpack
 local ssplit = he.split
 local startswith, endswith = he.startswith, he.endswith
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
@@ -107,10 +109,6 @@ local function receive_headers(so, vars)
 	return vars
 end--receive_headers()
 
-
-
-
-
 ------------------------------------------------------------------------
 -- rblob
 
@@ -139,7 +137,6 @@ function rblob.http_request(rb, s, get_flag)
 	local vars = {}
 	local scode = receive_status(so, vars)
 	receive_headers(so, vars)
-	print(333, he.t2s(vars))
 	local c, clen
 	clen = tonumber(vars.HTTP_CONTENT_LENGTH)
 	if not clen then return nil, "no Content-Length in response" end
@@ -147,7 +144,18 @@ function rblob.http_request(rb, s, get_flag)
 	so:close()
 	return c
 end
-	
+
+function rblob.request(rb, req)
+	local msg, ereq, eresp, resp, prefix
+	local ctr = rb.ctr
+	rb.ctr = ctr + 2 -- (ctr+1 will be used for the response)
+	prefix = spack("<c16I8", rb.nonce, ctr)
+	ereq = prefix .. hezen.morus_encrypt(rb.key, rb.nonce, req, ctr)
+	eresp, msg = rb:http_request(ereq)
+	if not eresp then return nil, msg end
+	resp, msg = hezen.morus_decrypt(rb.key, rb.nonce, eresp, ctr+1)
+	return resp, msg
+end
 	
 
 
@@ -168,7 +176,11 @@ rb.rawaddr = '\2\0\x0c\x12\127\0\0\1\0\0\0\0\0\0\0\0'
 -- default raw_echo handler
 rb.path = "/echo"
 
+rb.key = ('k'):rep(32)
+rb.nonce = ('n'):rep(16)
+rb.ctr = 0
 
+--[[
 local c = rb:http_request("hello, world!")
 print('POST', repr(c))
 
@@ -176,10 +188,15 @@ local c = rb:http_request(hehs.url_escape("hello, world!"))
 print('GET', repr(c))
 
 s = ('\0'):rep(10000) .. '\1'
-c = rb:http_request(s, true)
+c = rb:http_request(s)
 print(#s, #c)
 assert(s == c)
+--]]
 
+rb.path = '/rb'
+req = "hello?"
+resp, msg = rb:request(req)
+print(resp, msg)
 
 ------------------------------------------------------------------------
 -- run 
