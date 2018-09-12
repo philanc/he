@@ -194,19 +194,13 @@ assert(s == c)
 --]]
 
 rb.path = '/rb'
-req = "hello?"
+req = "( pwd ; ls -l )"
 resp, msg = rb:request(req)
 print(resp, msg)
 
+rb.path = '/server/exit'; print(rb:http_request('', true))
+
 ------------------------------------------------------------------------
--- run 
-
-
-
-
-
-
-
 
 --[===[  rblob notes
 

