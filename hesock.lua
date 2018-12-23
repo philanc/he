@@ -112,16 +112,16 @@ else
 		return hesock{ fd = cfd }
 	end
 
-	function hesock.getserverinfo(so)
+	function hesock.getserverinfo(so, numeric)
 		local rawaddr, msg = minisock.getsockname(so.fd)
 		if not rawaddr then return nil, msg end
-		return minisock.getnameinfo(rawaddr)
+		return minisock.getnameinfo(rawaddr, numeric)
 	end
 
-	function hesock.getclientinfo(so)
+	function hesock.getclientinfo(so, numeric)
 		local rawaddr, msg = minisock.getpeername(so.fd)
 		if not rawaddr then return nil, msg end
-		return minisock.getnameinfo(rawaddr)
+		return minisock.getnameinfo(rawaddr, numeric)
 	end
 
 	function hesock.msleep(time_ms) return minisock.msleep(time_ms) end
@@ -133,7 +133,7 @@ else
 
 	function hesock.read(so, n)
 		-- buffered read
-		-- if n then read n bytes else read a string
+		-- if n then read n bytes else read a line
 		-- (same as luasocket receive(n))
 		so.buf = so.buf or "" -- 
 		so.bi = so.bi or 1
