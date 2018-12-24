@@ -101,12 +101,19 @@ packany = function(st, x)
 	elseif t == "table" then packtable(st, x)
 	elseif x == true then insert(st, TTRUE)
 	elseif x == false then insert(st, TFALSE)
-	else error("cannot pack " .. t)
+	else 
+		if st.unpackable == "fail" then
+			error("cannot pack " .. t)
+		elseif st.unpackable == "repr" then
+			packstring(st, tostring(x))
+		end
 	end
 end
 
-local function pack(x)
-	local st = {depth = 0}
+local function pack(x, unpackable, maxdepth)
+	maxdepth = maxdepth or DEPTH_MAX
+	unpackable = unpackable or "fail"
+	local st = {depth = 0, maxdepth = maxdepth, unpackable = unpackable}
 	packany(st, x)
 	return table.concat(st)
 end
