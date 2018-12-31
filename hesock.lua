@@ -188,5 +188,43 @@ else
 	
 end --if "windows or linux minisock"
 ------------------------------------------------------------------------
+-- sockaddr utilities
+
+function hesock.parse_ipv4_sockaddr(sockaddr)
+	-- return ipv4 address as a string and port as a number
+	-- or nil, errmsg if family is not AF_INET (2) or length is not 16
+	-- 
+	if #sockaddr ~= 16 then 
+		return nil, "bad length"
+	end
+	local family, port, ip1, ip2, ip3, ip4 = 	
+		string.unpack("<H>HBBBB", sockaddr)
+	if family ~= 2 then 
+		return nil, "not an IPv4 address"
+	end
+	local ipaddr = table.concat({ip1, ip2, ip3, ip4}, '.')
+	return ipaddr, port
+end --parse_ipv4_sockaddr
+
+function hesock.make_ipv4_sockaddr(ipaddr, port)
+	-- return a sockaddr string or nil, errmsg
+	local ippat = "(%d+)%.(%d+)%.(%d+)%.(%d+)"
+	local ip1, ip2, ip3, ip4 = ipaddr:match(ippat)
+	ip1 = tonumber(ip1); ip2 = tonumber(ip2); 
+	ip3 = tonumber(ip3); ip4 = tonumber(ip4); 
+	local function bad(b) return b < 0 or b > 255 end 
+	if not ip1 or bad(ip1) or bad(ip2) or bad(ip3) or bad(ip4) then 
+		return nil, "not an IPv4 address"
+	end
+	if (not math.type(port) == "integer") 
+		or port <=0 or port > 65535 then 
+		return nil, "not a valid port"
+	end
+	return string.pack("<H>HBBBBI8", 2, port, ip1, ip2, ip3, ip4, 0)
+end
+	
+
+
+------------------------------------------------------------------------
 
 return hesock
