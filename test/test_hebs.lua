@@ -50,6 +50,7 @@ local function test_read_write_blob()
 	end
 	assert(bx == db.endx)
 	db:close()
+	os.remove(dbfn)
 end
 
 
