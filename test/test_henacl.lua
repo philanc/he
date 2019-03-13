@@ -13,7 +13,7 @@ if not(pcall(require, "luatweetnacl") or pcall(require, "tweetnacl")) then
 	return "skipped - no nacl library available"
 end
 
-local henacl = require "henacl"
+local henacl = require "he.nacl"
 
 local stx, xts = he.stohex, he.hextos
 ------------------------------------------------------------------------

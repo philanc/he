@@ -6,7 +6,7 @@
 ]]
 
 local he = require "he"
-local getopt = require("hegetopt").getopt
+local getopt = require("he.getopt").getopt
 
 local eq = he.equal
 local pp, ppt = he.pp, he.ppt

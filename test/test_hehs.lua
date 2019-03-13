@@ -7,7 +7,7 @@
 ]]
 
 local he = require "he"
-local hehs = require "hehs"
+local hehs = require "he.hs"
 
 -- to be fixed!
 cmd = " (sleep 1 ; wget -q localhost:3090/server/exit ; rm exit ) & "

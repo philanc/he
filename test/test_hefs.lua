@@ -9,7 +9,7 @@
 ]]
 
 local he = require "he"
-local hefs = require "hefs"
+local hefs = require "he.fs"
 local list = he.list
 local app, join = list.app, list.join
 

@@ -7,7 +7,7 @@
 ]]
 
 local he = require "he"
-local stx = require "stx"
+local stx = require "he.stx"
 
 local list = he.list
 local eq = he.equal

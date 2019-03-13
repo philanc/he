@@ -10,8 +10,8 @@ A small bunch of Lua utility functions
 
 This stuff is definitely NOT stable, and  NOT maintained.  
 
-hezen.lua and henacl.lua require respectively the  [luazen](https://github.com/philanc/luazen) and [luatweetnacl](https://github.com/philanc/luatweetnacl) extensions.
+he/zen.lua and he/nacl.lua require respectively the  [luazen](https://github.com/philanc/luazen) and [luatweetnacl](https://github.com/philanc/luatweetnacl) extensions.
 
 License: MIT -- see the file LICENSE
 
-Copyright (c) 2009-2016  Phil Leblanc 
+Copyright (c) 2009-2019  Phil Leblanc 

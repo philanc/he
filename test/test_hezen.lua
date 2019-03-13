@@ -14,7 +14,7 @@ hezen / luazen unit tests
 
 
 local he = require "he"
-local hezen = require "hezen"
+local hezen = require "he.zen"
 
 
 -- some local definitions

@@ -6,7 +6,7 @@
 ]]
 
 local he = require "he"
-local hs = require "hepack"
+local hs = require "he.pack"
 
 local list = he.list
 local pp = he.pp

@@ -12,7 +12,7 @@ by the test function below.  (see eg. test_nacl)
 ]]
 
 local function test(mod)
-	local r = require("test_" .. mod)
+	local r = require("test.test_" .. mod)
 	local msg = (type(r) == "string") and r or "ok"
 	print(string.format("test_%-15s \t%s", mod, msg))
 end

@@ -9,7 +9,7 @@
 
 
 local he = require "he"
-local hebs3 = require "hebs"
+local hebs3 = require "he.bs"
 
 local dbfn = he.tmpdir() .. '/zzdb1'
 local key = ('k'):rep(32)

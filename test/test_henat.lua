@@ -10,8 +10,8 @@
 ]]
 
 local he = require 'he'
-local hefs = require 'hefs'
-local henat = require 'henat'
+local hefs = require 'he.fs'
+local henat = require 'he.nat'
 
 --~ he.interactive()
 

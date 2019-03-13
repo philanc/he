@@ -1,4 +1,4 @@
--- Copyright (c) 2018  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2019  Phil Leblanc  -- see LICENSE file
 
 ------------------------------------------------------------------------
 --[[	
@@ -30,7 +30,7 @@ content:
   lseq          test equality (shallow)
   elems         iterator over the elements of a list (matching a predicate)
   uniq          return a list with unique elements in a list
-  uinsert       same as app but ensure all elements are unique
+  uinsert       same as insert but ensure all elements are unique
   uextend       same as extend but ensure all elements are unique
   uremove       remove first occurence of a value in a list
   
@@ -98,7 +98,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he099, 180821'
+he.VERSION = 'he100, 190313'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52

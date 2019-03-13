@@ -8,7 +8,7 @@
 ]]
 
 local he = require 'he'
-local csv = require 'hecsv'
+local csv = require 'he.csv'
 
 local parse = csv.parse
 
