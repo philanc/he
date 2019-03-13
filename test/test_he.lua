@@ -1,4 +1,4 @@
--- Copyright (c) 2018  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2019  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 --[[
 
@@ -12,7 +12,7 @@ assert(he)
 
 -- make sure we test the correct version
 --~ assert(he.VERSION:match("^he096,"), "bad he version")
-assert(he.VERSION:match("^he099,"), "bad he version")
+assert(he.VERSION:match("^he100,"), "bad he version")
 
 -- check that _G and string are not extended
 assert(not _G.he)
