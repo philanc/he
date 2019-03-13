@@ -15,6 +15,7 @@ hezen / luazen unit tests
 
 local he = require "he"
 local hezen = require "he.zen"
+local hefs = require "he.fs"
 
 
 -- some local definitions
@@ -458,8 +459,6 @@ end--argon2i
 
 ------------------------------------------------------------------------
 -- hezen encrypt, decrypt
-
-local hefs = require "hefs"
 
 -- make a tmp dir (dont write data in source tree...)
 local tmp = he.ptmp('hezen')

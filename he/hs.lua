@@ -46,7 +46,7 @@ responses are typically generated with the 'resp_*' utility functions.
 -- imports and local definitions
 
 local he = require 'he'
-local hefs = require 'hefs'
+local hefs = require 'he.fs'
 
 local list, strf, printf, repr = he.list, string.format, he.printf, he.repr
 local ssplit = he.split
@@ -64,7 +64,7 @@ end
 ------------------------------------------------------------------------
 -- low-level tcp socket interface
 
-local hesock = require "hesock"
+local hesock = require "he.sock"
 
 ------------------------------------------------------------------------
 -- hehs, the module object
