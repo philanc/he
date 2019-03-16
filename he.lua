@@ -983,22 +983,19 @@ he.pf = he.printf  -- alias for interactive use or quick tests
 
 
 function he.px(s) -- hex dump the string s
+	if math.type(s) == "integer" then s = ("I8"):pack(s) end
 	for i = 1, #s-1 do
 		io.write(strf("%02x", s:byte(i)))
 		if i%4==0 then io.write(' ') end  -- adjust as needed
 		if i%8==0 then io.write(' ') end
-		if i%16==0 then io.write('\n') end
-		if i%32==0 then io.write('') end
+		if i%16==0 then io.write('') end
+		if i%32==0 then io.write('\n') end
 	end
-	io.write(strf("%02x\n", s:byte(i)))
+	io.write(strf("%02x\n", s:byte(#s)))
 end
 
 function he.pix(i) -- hex rep of an integer
-	if math.abs(i) > 2<<32 then
-		pf("0x%016x", i)
-	else
-		pf("0x%08x", i)
-	end
+	pf("0x%08x", i)
 end
 
 --
