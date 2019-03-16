@@ -977,8 +977,9 @@ function he.ppl(lst)  print(he.l2s(lst)) end
 function he.ppt(lst)  print(he.t2s(lst)) end
 function he.ppk(dic)  print(he.l2s(he.sortedkeys(dic))) end
 
-function he.pf(...) print(string.format(...)) end
 function he.errf(...) error(string.format(...)) end
+function he.printf(...) print(string.format(...)) end
+he.pf = he.printf  -- alias for interactive use or quick tests
 
 
 function he.px(s) -- hex dump the string s
@@ -992,6 +993,13 @@ function he.px(s) -- hex dump the string s
 	io.write(strf("%02x\n", s:byte(i)))
 end
 
+function he.pix(i) -- hex rep of an integer
+	if math.abs(i) > 2<<32 then
+		pf("0x%016x", i)
+	else
+		pf("0x%08x", i)
+	end
+end
 
 --
 --~ he.prsep_ch = '-'  -- character used for separator line
@@ -1067,7 +1075,8 @@ function he.interactive()
 	_G.he = he
 	-- export some he defs to global env
 	_G.pp, _G.ppl, _G.ppt = he.pp, he.ppl, he.ppt
-	_G.strf, _G.pf, _G.px = string.format, he.pf, he.px
+	_G.strf, _G.pf = string.format, he.printf
+	_G.px, _G.pix = he.px, he.pix
 	_G.repr = he.repr
 	_G.list = he.list
 	print(he.VERSION)
