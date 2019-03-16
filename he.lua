@@ -977,8 +977,21 @@ function he.ppl(lst)  print(he.l2s(lst)) end
 function he.ppt(lst)  print(he.t2s(lst)) end
 function he.ppk(dic)  print(he.l2s(he.sortedkeys(dic))) end
 
-function he.printf(...) print(string.format(...)) end
+function he.pf(...) print(string.format(...)) end
 function he.errf(...) error(string.format(...)) end
+
+
+function he.px(s) -- hex dump the string s
+	for i = 1, #s-1 do
+		io.write(strf("%02x", s:byte(i)))
+		if i%4==0 then io.write(' ') end  -- adjust as needed
+		if i%8==0 then io.write(' ') end
+		if i%16==0 then io.write('\n') end
+		if i%32==0 then io.write('') end
+	end
+	io.write(strf("%02x\n", s:byte(i)))
+end
+
 
 --
 --~ he.prsep_ch = '-'  -- character used for separator line
@@ -1054,7 +1067,8 @@ function he.interactive()
 	_G.he = he
 	-- export some he defs to global env
 	_G.pp, _G.ppl, _G.ppt = he.pp, he.ppl, he.ppt
-	_G.strf, _G.printf = string.format, he.printf
+	_G.strf, _G.pf, _G.px = string.format, he.pf, he.px
+	_G.repr = he.repr
 	_G.list = he.list
 	print(he.VERSION)
 	return he
