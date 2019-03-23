@@ -203,6 +203,61 @@ function hezen.decrypt_file(k, fni, fno, pkflag)
 end
 
 ------------------------------------------------------------------------
+-- a simple and (semi-)naive derivation function
+
+-- it uses the experimental XOF function built on the
+-- Morus permutation (see luazen or plc/morus)
+-- in each step, the function computes a L-byte output string.
+-- the last 32 bytes of the string are used as a key.
+-- the string and the key are used as inputs to the next step.
+
+-- with the parameters below, the function uses ~ L*N MB of 
+-- memory (100MB) and perform 2*N XOFs over L-byte (100KB) strings.
+--
+-- An attacker without using memory would have to perform 
+-- N + N*(N-1)/2 XOFs. 
+-- Because the function uses a XOF instead of 
+-- an encryption function, the XOF has to absorb the complete 
+-- input string before starting to produce output. So an attacker
+-- with a lot of cores cannot parallelize the N steps.
+
+
+function hezen.df(p, salt)
+	-- a derivation function. inputs are a password p and
+	-- some optional salt (a 1 to 32-byte string).
+	-- return two strings that can be used as key and nonce
+	salt = salt or "df init"
+	local L = 100 * 1024  -- block length in bytes
+	local N = 1000        -- number of blocks
+	local KLEN = 32	      -- return a 32-byte key string
+	local NLEN = 16       -- return a 16-byte nonce string	
+	local function df_step(s, k)
+		local s2 = lz.morus_xof(s, L, k)
+		local k2 = s2:sub(L - 31) -- the last 32 bytes
+		return s2, k2
+	end
+	p = p:rep(100)
+	local s, k = df_step(p, salt)
+	local t = {} -- the block table
+	for i = 1, N do
+		-- fill the block table with the result of each step
+		s, k = df_step(s, k)
+		t[i] = s
+	end
+	for i = N, 1, -1 do
+		-- going back from the last to the first block,
+		s, k = df_step(t[i], k)
+		t[i] = s  -- not needed if only one round is done
+	end
+	local n = s:sub(1, NLEN)
+--~ 	for i = 1, N do assert(#t[i] == L, i) end
+	return k, n
+end
+
+
+
+
+------------------------------------------------------------------------
 -- support compression function names used by various legacy versions!
 
 hezen.lzf = hezen.lzf or hezen.compress or hezen.zip

@@ -975,7 +975,7 @@ end
 
 function he.ppl(lst)  print(he.l2s(lst)) end
 function he.ppt(lst)  print(he.t2s(lst)) end
-function he.ppk(dic)  print(he.l2s(he.sortedkeys(dic))) end
+--~ function he.ppk(dic)  print(he.l2s(he.sortedkeys(dic))) end
 
 function he.errf(...) error(string.format(...)) end
 function he.printf(...) print(string.format(...)) end
