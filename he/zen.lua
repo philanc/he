@@ -232,7 +232,7 @@ function hezen.df(p, salt)
 	local KLEN = 32	      -- return a 32-byte key string
 	local NLEN = 16       -- return a 16-byte nonce string	
 	local function df_step(s, k)
-		local s2 = lz.morus_xof(s, L, k)
+		local s2 = hezen.morus_xof(s, L, k) --XXXXXXXXXXXXXX
 		local k2 = s2:sub(L - 31) -- the last 32 bytes
 		return s2, k2
 	end

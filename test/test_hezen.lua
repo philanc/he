@@ -29,7 +29,7 @@ local stx, xts = he.stohex, he.hextos
 
 local function px(s, msg) 
 	print("--", msg or "")
-	print(stohex(s, 16, " ")) 
+	print(stx(s, 16, " ")) 
 end
 
 
@@ -455,6 +455,26 @@ if hezen.argon2i then do
 	print("argon2i (100MB, 10 iter) Execution time (sec): ", os.clock()-c0)
 	end--do
 end--argon2i
+
+
+------------------------------------------------------------------------
+if hezen.df then do
+	print("testing morus-based kdf...")
+	pw = "hello"
+	salt = "salt salt salt"
+	k = ""
+	c0 = os.clock()
+	k, n = hezen.df(pw, salt)
+	assert(k == xts[[
+		0c11fdd5361cdfcb67471ae70c1b0a56
+		cb326c964e553c4a31b7ebaa6c957fa5 ]])
+	assert(n == xts[[ 
+		6fb1aec92ce9419e4f2774a3fd4605b8 ]])
+	print("df (100MB) Execution time (sec): ", os.clock()-c0)
+	end--do
+end--argon2i
+
+
 
 
 ------------------------------------------------------------------------
