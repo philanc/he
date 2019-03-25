@@ -471,8 +471,16 @@ if hezen.df then do
 	assert(n == xts[[ 
 		6fb1aec92ce9419e4f2774a3fd4605b8 ]])
 	print("df (100MB) Execution time (sec): ", os.clock()-c0)
+	-- test the dfwrap/dfunwrap functions
+	k = ("k"):rep(32)
+	-- use a low block number for df to keep the test fast enough
+	wk = hezen.dfwrap(pw, k, 10) 
+	assert(#wk == 64)
+	k2, err = hezen.dfunwrap(pw, wk)
+	assert(k2, err)
+	assert(k2 == k)
 	end--do
-end--argon2i
+end--df
 
 
 

@@ -222,13 +222,14 @@ end
 -- with a lot of cores cannot parallelize the N steps.
 
 
-function hezen.df(p, salt)
+function hezen.df(p, salt, bnb)
 	-- a derivation function. inputs are a password p and
 	-- some optional salt (a 1 to 32-byte string).
+	-- bnb is an optional block number (defaults to 1,000)
 	-- return two strings that can be used as key and nonce
 	salt = salt or "df init"
 	local L = 100 * 1024  -- block length in bytes
-	local N = 1000        -- number of blocks
+	local N = bnb or 1000        -- number of blocks
 	local KLEN = 32	      -- return a 32-byte key string
 	local NLEN = 16       -- return a 16-byte nonce string	
 	local function df_step(s, k)
@@ -254,7 +255,21 @@ function hezen.df(p, salt)
 	return k, n
 end
 
+function hezen.dfwrap(pw, k, bnb)
+	-- wrap an arbitrary string k (mostly used to wrap a key)
+	k = k or hezen.randombytes(32)
+	local salt = hezen.morus_xof(hezen.randombytes(16), 16)
+	local ek, en = hezen.df(pw, salt) -- encryption key and nonce
+	local wk= salt .. hezen.morus_encrypt(ek, en, k)
+	assert(#wk == #k + 32)
+	return wk
+end
 
+function hezen.dfunwrap(pw, wk, bnb)
+	local salt = wk:sub(1,16)
+	local ek, en = hezen.df(pw, salt) -- encryption key and nonce
+	return hezen.morus_decrypt(ek, en, wk:sub(17))
+end
 
 
 ------------------------------------------------------------------------
