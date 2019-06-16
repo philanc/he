@@ -438,8 +438,10 @@ function he.endswith(s, sx)
 end--endswith
 
 function he.lpad(s, w, ch) 
-	-- pad s to the left to width w with char ch
+	-- pad s to the left to width w with char ch (ch is a 1-char 
+	-- string, defaults to space)
 	ch = ch or " "
+	assert(#ch == 1)
 	if #s < w then 
 		s = ch:rep(w - #s) .. s
 	end
@@ -447,8 +449,10 @@ function he.lpad(s, w, ch)
 end
 
 function he.rpad(s, w, ch) 
-	-- pad s to the right to width w with char ch
+	-- pad s to the right to width w with char ch (ch is a 1-char 
+	-- string, defaults to space)
 	ch = ch or " "
+	assert(#ch == 1)
 	if #s < w then 
 		s = s .. ch:rep(w - #s)
 	end
