@@ -952,7 +952,7 @@ function he.px(s) -- hex dump the string s
 	io.write(strf("%02x\n", s:byte(#s)))
 end
 
-function he.pix(i) -- hex rep of an integer
+function he.pix(i) -- print the hex rep of an integer
 	pf("0x%08x", i)
 end
 
