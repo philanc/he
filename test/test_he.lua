@@ -12,7 +12,7 @@ assert(he)
 
 -- make sure we test the correct version
 --~ assert(he.VERSION:match("^he096,"), "bad he version")
-assert(he.VERSION:match("^he100,"), "bad he version")
+assert(he.VERSION:match("^he101,"), "bad he version")
 
 -- check that _G and string are not extended
 assert(not _G.he)
@@ -325,7 +325,7 @@ assert(he.makepath("ab", "/cd") == "ab//cd") -- should be nil?
 -- --[==[
 
 local test_tmpdir = he.tmpdir()
-local fn = he.ptmp('he_test_file.txt')
+local fn = he.tmpname('he_test_file.txt')
 --~ print('tmp file path:', fn)
 he.fput(fn, 'hello'); x = he.fget(fn); assert(x == 'hello')
 
@@ -334,13 +334,13 @@ if he.windows then
 --	print('Platform is Windows.')
 	x = he.shell('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
 	assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
-	x = he.cmdlines('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
+	x = he.shlines('dir /B ' .. he.pnormw(test_tmpdir) .. '\\he_test_file.t*')
 	assert(he.endswith(x[1], 'he_test_file.txt'))
 else -- assume linux
 --	 print('Platform is Linux.')
 	x = he.shell('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
 	assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
-	x = he.cmdlines('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
+	x = he.shlines('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
 	assert(he.endswith(x[1], 'he_test_file.txt'))
 end -- if 
 

@@ -197,7 +197,7 @@ local function reformat_ziplines(ziplines)
 end
 
 local function ziplist(zipfn)
-    local zl = he.cmdlines('unzip -ZTs '..zipfn)
+    local zl = he.shlines('unzip -ZTs '..zipfn)
     if #zl < 2 then return nil end
     local nzl = reformat_ziplines(zl)
     return nzl
@@ -206,25 +206,24 @@ end
 local function zip(fn, zipfn)
     zipfn = zipfn or fn..'.zip'
 --~     ret = os.execute(string.format('zip -r %s %s', zipfn, fn))
-    return he.cmd(string.format('zip -q -r %s %s', zipfn, fn))
+    return he.shell(string.format('zip -q -r %s %s', zipfn, fn))
 end
 
 local function unzip(zipfn, dirfn)
 	-- extract in dirfn or current dir if dirfn is not specified
 	dirfn = dirfn or '.'
-    return he.cmd(string.format('unzip -d %s %s', dirfn, zipfn))
+    return he.shell(string.format('unzip -d %s %s', dirfn, zipfn))
 end
 
 local function tar(fn, zipfn)
     zipfn = zipfn or fn..'.tar'
 --~     ret = os.execute(string.format('zip -r %s %s', zipfn, fn))
---~     return he.shell(string.format('tar cf %s %s', zipfn, fn))
-    return he.cmd(string.format('tar cf %s %s', zipfn, fn))
+    return he.shell(string.format('tar cf %s %s', zipfn, fn))
 end
 
 
 local function tartos(fn)
-    return he.cmd(string.format('tar cf - %s', fn))
+    return he.shell(string.format('tar cf - %s', fn))
 end
 
 
@@ -236,8 +235,8 @@ local flist_cmd =
 	'find %s -type f -printf "%%TY%%Tm%%Td_%%TH%%TM\t%%s\t%%p\\n" '
 
 local function findlist(dir)
-	local ll, errmsg, status = he.cmdlines(strf(flist_cmd, dir))
-	if not ll then return nil, errmsg, status end
+	local ll, status = he.shlines(strf(flist_cmd, dir))
+	if not ll then return nil, status end
 --~ 	he.pp(ll)
 	if he.windows then ll = ll:map(he.pnorm) end
 --~ 	he.pp(ll)
@@ -252,9 +251,9 @@ end
 
 local function findfiles(dir)
 	local cmd = 'find %s -type f '
-	r, msg, status = he.cmdlines(strf(cmd, dir))
+	r, status = he.shlines(strf(cmd, dir))
 	if r and he.windows then r = r:map(he.pnorm) end
-	return r, msg, status
+	return r, status
 end
 
 
@@ -262,9 +261,9 @@ local function finddirs(dir)
 	-- find depth-first - makes it easier to delete a file tree
 	-- and can be easily sorted for a more natural order
 	local cmd = 'find %s -type d -depth '
-	r, msg, status = he.cmdlines(strf(cmd, dir))
+	r, status = he.shlines(strf(cmd, dir))
 	if r and he.windows then r = r:map(he.pnorm) end
-	return r, msg, status
+	return r, status
 end
 
 

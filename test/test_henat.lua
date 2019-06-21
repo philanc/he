@@ -20,7 +20,7 @@ local sep, resep = hefs.sep, hefs.resep
 local win = test_windows
 
 -- test setup
-local tmp = he.ptmp('henat')
+local tmp = he.tmpname('henat')
 if hefs.isdir(tmp) then hefs.rmdirs(tmp) end
 assert(hefs.mkdir(tmp))
 hefs.pushd(tmp)

@@ -489,7 +489,7 @@ end--df
 -- hezen encrypt, decrypt
 
 -- make a tmp dir (dont write data in source tree...)
-local tmp = he.ptmp('hezen')
+local tmp = he.tmpname('hezen')
 if hefs.isdir(tmp) then hefs.rmdirs(tmp) end
 assert(hefs.mkdir(tmp))
 assert(hefs.isdir(tmp))

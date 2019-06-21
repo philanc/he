@@ -781,7 +781,7 @@ function he.tmpname(fname)
 	-- with lua 5.3.4 compiled with VS2014/VC, 
 	-- os.tmpname returns an absolute path like "C:\...\sl5s.3"
 	if fname then 
-		return he.tmpdir() .. '/' .. name
+		return he.tmpdir() .. '/' .. fname
 	end
 	if he.windows then
 		return he.tmpdir() .. '/' 
