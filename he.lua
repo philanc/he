@@ -938,9 +938,7 @@ function he.ppt(lst)  print(he.t2s(lst)) end
 --~ function he.ppk(dic)  print(he.l2s(he.sortedkeys(dic))) end
 
 function he.errf(...) error(string.format(...)) end
-function he.printf(...) print(string.format(...)) end
-he.pf = he.printf  -- alias for interactive use or quick tests
-
+function he.pf(...) print(string.format(...)) end
 
 function he.px(s) -- hex dump the string s
 	if math.type(s) == "integer" then s = ("I8"):pack(s) end
@@ -1032,7 +1030,7 @@ function he.interactive()
 	_G.he = he
 	-- export some he defs to global env
 	_G.pp, _G.ppl, _G.ppt = he.pp, he.ppl, he.ppt
-	_G.strf, _G.pf = string.format, he.printf
+	_G.strf, _G.pf = string.format, he.pf
 	_G.px, _G.pix = he.px, he.pix
 	_G.repr = he.repr
 	_G.list = he.list
