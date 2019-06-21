@@ -68,8 +68,7 @@ content:
   isodate       convert time to ISO date representation
   iso2time      parse ISO date and return a time (sec since epoch)
   shell         execute a shell command, return stdout as a string
-  cmd           same as shell(), but return also stderr as an error msg
-  cmdlines      same as cmd(), but return stdout as a list of lines 
+  shlines       execute a shell command, return stdout as a list of lines
   escape_sh     escape posix shell special chars
   source_line   return the current file and line number
   exitf         write a formatted message and exit from the program
@@ -78,12 +77,10 @@ content:
   -- misc file and pathname functions
   fget          return the content of a file as a string
   fput          write a string to a file
-  fgetlines     return the content of a file as a list of strings
-  fputlines     write a list of lines to a file
   pnormw        normalize a path for windows
   pnorm         normalize a path for unix
   tmpdir        returns a temp directory
-  ptmp          returns a temp path
+  tmpname       returns a temp path
   basename      strip directory and suffix from a file path
   dirname       strip last component from file path
   fileext       return the extension of a file path
@@ -98,7 +95,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he100, 190313'
+he.VERSION = 'he101, 190621'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -684,22 +681,6 @@ function he.fput(fname, content)
 	r, msg = f:write(content)
 	f:flush(); f:close()
 	if not r then return nil, msg else return true end
-end
-
-function he.fgetlines(fname)
-	-- return content of file 'fname' as a list of lines
-	local s, msg = he.fget(fname)
-	if not s then return nil, msg end
-	return he.lines(s)
-end
-
-function he.fputlines(fname, sl, eol)
-	-- write all lines in sl to file 'fname'
-	-- sl is a list of strings (with no eol)
-	-- put eol between strings (not at end). default is \n.
-	eol = eol or '\n'
-	local content = table.concat(sl, eol)
-	return he.fput(fname, content)
 end
 
 ------------------------------------------------------------------------
