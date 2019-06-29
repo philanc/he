@@ -33,7 +33,7 @@ local function px(s, msg)
 end
 
 
-assert(hezen.VERSION == "luazen-0.11")
+assert(hezen.VERSION == "luazen-0.12")
 
 ------------------------------------------------------------------------
 if hezen.lzf then do
@@ -49,7 +49,7 @@ end
 
 ------------------------------------------------------------------------
 if hezen.blz then do
-	print("testing bhezen...")
+	print("testing blz...")
 	assert(hezen.blz("") == "\0\0\0\0")
 	assert(hezen.unblz("\0\0\0\0") == "")
 	local x
