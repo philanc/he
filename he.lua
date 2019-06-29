@@ -933,14 +933,13 @@ function he.pp(...)
 	end
 end
 
-function he.ppl(lst)  print(he.l2s(lst)) end
-function he.ppt(lst)  print(he.t2s(lst)) end
---~ function he.ppk(dic)  print(he.l2s(he.sortedkeys(dic))) end
 
 function he.errf(...) error(string.format(...)) end
-function he.pf(...) print(string.format(...)) end
+function he.printf(...) print(string.format(...)) end
 
-function he.px(s) -- hex dump the string s
+function he.px(s) 
+	-- hex dump the string s
+	-- if s is an integer, dump the memory representation of s (8 bytes)
 	if math.type(s) == "integer" then s = ("I8"):pack(s) end
 	for i = 1, #s-1 do
 		io.write(strf("%02x", s:byte(i)))
@@ -952,7 +951,8 @@ function he.px(s) -- hex dump the string s
 	io.write(strf("%02x\n", s:byte(#s)))
 end
 
-function he.pix(i) -- print the hex rep of an integer
+function he.pix(i) 
+	-- print integer i as a hex number
 	pf("0x%08x", i)
 end
 
@@ -1006,7 +1006,7 @@ end
 -- extend environment
 
 function he.extend_string()
-	-- extend string module with he string functions
+	-- extend string module with the he module string functions
 	string.startswith  =  he.startswith
 	string.endswith  =  he.endswith
 	string.lpad  =  he.lpad
@@ -1021,21 +1021,6 @@ function he.extend_string()
 	string.repr  =  he.repr
 	string.stohex  =  he.stohex
 	string.hextos  =  he.hextos
-end
-
-function he.interactive()
-	he.extend_string()
-	-- export he to global env
-	_G.he = nil
-	_G.he = he
-	-- export some he defs to global env
-	_G.pp, _G.ppl, _G.ppt = he.pp, he.ppl, he.ppt
-	_G.strf, _G.pf = string.format, he.pf
-	_G.px, _G.pix = he.px, he.pix
-	_G.repr = he.repr
-	_G.list = he.list
-	print(he.VERSION)
-	return he
 end
 
 
