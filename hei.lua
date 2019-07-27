@@ -22,6 +22,11 @@ pp = he.pp
 -- require a module and make it global
 function req(name) 
 	local m = require(name)
+	-- if name is a dotted module name (eg, "plc.rc4"), 
+	-- use the last component as global name
+	-- so "req('plc.rc4') would load the module as 'rc4'
+	local last = name:match("^.+%.(.*)$") 
+	if last then name = last end
 	_G[name] = m
 	return m
 end
