@@ -918,6 +918,7 @@ end--t2s()
 
 function he.pp(...)
 	local repr = he.repr
+	local x
 	for i = 1, select('#', ...) do
 		x = select(i, ...)
 		if type(x) == 'table' then 
