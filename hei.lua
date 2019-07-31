@@ -8,6 +8,9 @@ he = require "he"  -- make he global
 -- add he string functions to string metatable
 he.extend_string()
 
+-- make list()  global
+list = he.list
+
 -- add some convenience display functions
 
 function ppl(lst)  print(he.l2s(lst)) end -- display a list
