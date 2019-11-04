@@ -51,6 +51,7 @@ content:
   lpad          pad a string on the left
   rpad          pad a string on the right
   split         split a string on a separator pattern
+  spsplit       split a string by whitespaces (sp, tab, cr, lf) 
   rstrip        strip whitespace at beginning
   lstrip        strip whitespace at end
   strip         strip whitespace at beginning and end
@@ -476,6 +477,16 @@ function he.split(s, sep, cnt)
 	table.insert(t, sub(s, i0, -1))
 	return t
 end --split()
+
+function he.spsplit(s)
+	-- split string s by any sequence of space characters 
+	-- (sp, tab, cr, nl)
+	local insert = table.insert
+	local t = he.list()
+	for x in s:gmatch("(%S+)") do insert(t, x) end
+	return t
+end --spsplit()
+
 
 function he.lines(s) return he.split(s, '\r?\n') end
 

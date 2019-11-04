@@ -47,6 +47,9 @@ l = he.split(s, nil, 1);
 assert(#l == 2 and l[2]=='de   f==')
 l = he.split(s, '=', 2); 
 assert(#l == 3 and l[3]=='=')
+s =  "a\t\t\r\n\r\t\nbb cc\t\r\rddd\n\n\teee"
+l = he.spsplit(s)
+assert(#l == 5 and l[3]=="cc" and l[5]=="eee")
 s = '\tabc  \r\n  '
 assert(he.strip(s) == 'abc') 
 assert(he.rstrip(s) == '\tabc')

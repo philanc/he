@@ -33,7 +33,7 @@ local function px(s, msg)
 end
 
 
-assert(hezen.VERSION == "luazen-0.12")
+assert(hezen.VERSION == "luazen-0.13b")
 
 ------------------------------------------------------------------------
 if hezen.lzf then do
