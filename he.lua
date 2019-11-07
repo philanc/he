@@ -96,7 +96,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he102, 190629'
+he.VERSION = 'he103, 191106'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
