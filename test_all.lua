@@ -1,4 +1,4 @@
--- Copyright (c) 2018  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2019  Phil Leblanc  -- see LICENSE file
 ------------------------------------------------------------------------
 
 --[[
@@ -21,7 +21,7 @@ end
 test "he"
 test "hefs"
 test "hecsv"
-test "hezen"
+--~ test "hezen" -- luazen now built w/o norx. must use plc / revise the test
 test "henacl"
 test "hegetopt"
 test "hepack"
@@ -30,4 +30,5 @@ test "hebs"
 test "stx"
 test "hesock"
 test "hehs"
+test "moe"
 
