@@ -107,44 +107,11 @@ end --moe.use()
 -- can be overridden by program by calling moe.use()
 
 local r, msg = moe.use("luazen")
-if not r then r, msg = moe.use(plc) end
+if not r then r, msg = moe.use("plc") end
 if not r then 
 	print("no available crypto.", msg)
 end
 
-
-local r, lz = pcall(require, "luazen")
-
-if r and lz.morus_encrypt then 
-	moe.cryptolib = "luazen"
-	moe.noncegen = "randombytes"
-	encrypt = lz.morus_encrypt
-	decrypt = lz.morus_decrypt
-	hash = lz.morus_xof
-	b64encode = lz.b64encode
-	b64decode = lz.b64decode
-	newnonce = function() return lz.randombytes(moe.noncelen) end
-else 
-	local mo, b64
-	mo = require("plc.morus")
-	b64 = require("plc.base64")
-	moe.cryptolib = "plc"
-	encrypt = mo.encrypt
-	decrypt = mo.decrypt
-	hash = mo.xof
-	b64encode = b64.encode
-	b64decode = b64.decode	
-	local devrandom = io.open("/dev/urandom", "r")
-	if devrandom then
-		newnonce = function() return devrandom:read(moe.noncelen) end
-		moe.noncegen = "/dev/urandom"
-	else
-		newnonce = function() 
-			return hash(os.time()..os.clock(), moe.noncelen)
-			end
-		moe.noncegen = "time-based"
-	end
-end
 
 -- string encryption
 
