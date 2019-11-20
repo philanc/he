@@ -952,6 +952,7 @@ function he.printf(...) print(string.format(...)) end
 function he.px(s) 
 	-- hex dump the string s
 	-- if s is an integer, dump the memory representation of s (8 bytes)
+	local strf = string.format
 	if math.type(s) == "integer" then s = ("I8"):pack(s) end
 	for i = 1, #s-1 do
 		io.write(strf("%02x", s:byte(i)))
