@@ -198,11 +198,60 @@ function list.extend(lst, otherlist)
 	return lst
 end
 
-function list.filter(lst, pred, ...)
-	-- return a shallow copy of lst with elems e where pred(e, ...) is true
-	local t2 = list()
-	for k, e in ipairs(lst) do if pred(e, ...) then table.insert(t2, e)  end end
-	return t2
+function list.map(lst, f, ...)
+	-- maps function f over list lst
+	-- f is applied to each element v of lst, in sequence
+	-- creates a new list with results of f(v, ...) 
+	-- if the result of f(v, ...) is false, error_msg 
+	-- then map() stops and return false, error_msg, part_rlst
+	-- where part_rlst is the list of results already collected.
+	-- (if f returns false for a value in lst at index i, 
+	--  then #part_rlst == i - 1)
+	--
+	local r = list()
+	local x, errmsg
+	for i, v in ipairs(lst) do
+		x, errmsg = f(v, ...)
+		if not x then 
+			return false, errmsg, r
+		else
+			list.insert(r, x) 
+		end
+	end
+	return r
+end
+
+
+function list.mapall(lst, f, ...)
+	-- maps function f over list lst
+	-- f(v, ...) is applied to each element v of lst, in sequence
+	-- creates a new list with results of f (v, ...) 
+	-- if f() result is falsy (false or nil), false is inserted
+	-- (so #mapall(lst, f, ...) == #lst)
+	local r = list()
+	local x
+	for i, v in ipairs(lst) do
+		x = f(v, ...)
+		if x then list.insert(r, x) 
+		else list.insert(r, false)
+		end
+	end
+	return r
+end
+
+function list.mapf(lst, f, ...)
+	-- maps function f over list lst  ("map-filter")
+	-- f is applied to each element v of lst, in sequence
+	-- creates a new list with results of f(v, ...) 
+	-- if the result of f(v, ...) is false, it is not inserted.
+	--	(=> cannot be used to make a list with false elems...)
+	local r = list()
+	local x
+	for i, v in ipairs(lst) do
+		x = f(v, ...)
+		if x then list.insert(r, x) end
+	end
+	return r
 end
 
 function list.sorted(lst, cmpf)
@@ -215,21 +264,6 @@ function list.sorted(lst, cmpf)
 	return el
 end --sorted()
 
-function list.map(lst, f, ...)
-	-- maps function f over list lst
-	-- f(v, ...) is applied to each element v of lst, in sequence
-	-- creates a new list with results of f (v, ...) 
-	--		(only if result is non false)
-	--		(=> cannot be used to make a list with false elems...)
-	assert(f)
-	local r = list()
-	local x
-	for i, v in ipairs(lst) do
-		if f then x = f(v, ...) else x = v end
-		if x then table.insert(r, x) end
-	end
-	return r
-end
 
 function list.lseq(lst, lst2)
 	-- "list simple (or shallow) equal" 
@@ -243,9 +277,10 @@ function list.lseq(lst, lst2)
 	return true
 end
 
-function list.has(lst, elem)
+function list.find(lst, elem)
+	-- return index of first matching element or false
 	for i,v in ipairs(lst) do 
-		if v == elem then return true end 
+		if v == elem then return i end 
 	end
 	return false
 end
