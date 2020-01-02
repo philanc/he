@@ -32,7 +32,7 @@ assert(hefs.isdir(tmp))
 local b=false; 
 for x in hefs.dir(he.tmpdir()) do b = b or x=='hefs' end
 assert(b)
-assert(list.has(hefs.dirs(he.tmpdir()), tmp))
+assert(list.find(hefs.dirs(he.tmpdir()), tmp))
 
 local ph = he.makepath(tmp, 'hello.txt')
 local t = os.time()

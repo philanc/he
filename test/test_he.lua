@@ -88,14 +88,14 @@ local f = fifo(); f:push(11); f:push(22); assert(f:pop() == 11)
 a = {'hello', 22}
 b = {'hello', 22} --do not change a and b!!
 --contains
-assert(list.has(a,22) and not list.has(a,33))
+assert(list.find(a,22) and not list.find(a,33))
 --equal
 assert(a ~= b)
 assert(he.equal(a, b))
 -- extend
 list.extend(a, b); assert(a[3] == 'hello')
 --filter, map
-c = list.map(a, function(x) return type(x) == 'string' and x end)
+c = list.mapf(a, function(x) return type(x) == 'string' and x end)
 assert(c[2] == 'hello')
 d = list.map(c, function(x) return x..' bob' end)
 assert(c[2] == 'hello' and d[2] == 'hello bob')
@@ -124,10 +124,10 @@ t = list()
 t:insert{key=222, name='vic', age=33}
 t:insert{key='u111', name='paul', age=47}
 t:insert{key=333, name='mary', age=12}
-b = t:filter(function(e) return e.name=='mary' end)
+b = t:mapf(function(e) if e.name=='mary' then return e end end)
 assert(#b == 1 and b[1].age == 12)
 --~ b = t:filter(he.testf, 'name', string.match, '.*a');  
-b = t:filter(function(e) return e.name:match'.*a' end);  
+b = t:mapf(function(e) return e.name:match'.*a' and e end);  
 assert(#b == 2 and b[1].age == 47) 
 --~ b = t:sorted(he.reccmp'name') ; assert(#b == 3 and b[3].age == 33)
 b = t:map(function(e) return e.age * 2 end) ; assert(b[3] == 24)
@@ -169,15 +169,15 @@ assert(he.t2s(d) == '{["a"]=11, ["b"]="bb"}')
 a = {}; assert(he.count(a) == 0)
 a.x = 11; a.y = 22; assert(he.count(a) == 2)
 assert(he.count(a, function(v) return v>15 end) == 1)
-assert(he.count(a, function(v) return list.has({11,22}, v) end) == 2)
-assert(he.count(a, function(v) return list.has({22, 'y'}, v) end) == 1)
-assert(he.count(a, function(v) return list.has({'a', 'y'}, v) end) == 0)
+assert(he.count(a, function(v) return list.find({11,22}, v) end) == 2)
+assert(he.count(a, function(v) return list.find({22, 'y'}, v) end) == 1)
+assert(he.count(a, function(v) return list.find({'a', 'y'}, v) end) == 0)
 
 -- keys, sortedkeys
 b = list(); for k,v in pairs(a) do b:insert(k) end
-assert(b:has('x') and b:has('y'))
+assert(b:find('x') and b:find('y'))
 b = list(); for i,k in ipairs(list(he.keys(a))) do b:insert(k) end
-assert(b:has('x') and b:has('y'))
+assert(b:find('x') and b:find('y'))
 b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:insert(k) end
 assert(b:concat('') == "xy")
 b = list(); for i,k in ipairs(he.sortedkeys(a)) do b:insert(a[k]) end
