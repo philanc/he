@@ -50,6 +50,32 @@ assert(#l == 3 and l[3]=='=')
 s =  "a\t\t\r\n\r\t\nbb cc\t\r\rddd\n\n\teee"
 l = he.spsplit(s)
 assert(#l == 5 and l[3]=="cc" and l[5]=="eee")
+-- eolsplit()
+s = ""; assert(list.lseq(he.eolsplit(s), {""}))
+s = "abc"; assert(list.lseq(he.eolsplit(s), {"abc"}))
+s = "abc\n"; assert(list.lseq(he.eolsplit(s), {"abc", ""}))
+s = "abc\r\n"; assert(list.lseq(he.eolsplit(s), {"abc", ""}))
+s = "\nabc"; assert(list.lseq(he.eolsplit(s), {"", "abc"}))
+s = "ab\rc\n"; assert(list.lseq(he.eolsplit(s), {"ab\rc", ""}))
+s = "abc\r\ndef"; assert(list.lseq(he.eolsplit(s), {"abc", "def"}))
+-- lines() iterator
+local f = function(s)
+	local t = list()
+	for l in he.lines(s) do t:insert(l) end
+	return t
+end
+assert(list.lseq(f"", {""}))
+assert(list.lseq(f"a", {"a"}))
+assert(list.lseq(f"a\n", {"a"}))
+assert(list.lseq(f"a\r\n", {"a"}))
+assert(list.lseq(f"a\n\r", {"a", ""}))
+assert(list.lseq(f"a\rb\r", {"a", "b"}))
+assert(list.lseq(f"\na", {"", "a"}))
+assert(list.lseq(f"\r\na", {"", "a"}))
+assert(list.lseq(f"\r \na", {"", " ", "a"}))
+
+	
+
 s = '\tabc  \r\n  '
 assert(he.strip(s) == 'abc') 
 assert(he.rstrip(s) == '\tabc')
@@ -62,6 +88,7 @@ assert(he.rpad('abc', 6, '-') == "abc---")
 assert(he.lpad('abc', 6, '-') == "---abc")
 assert(he.rpad('abcdef', 3) == "abcdef")
 assert(he.lpad('abcdef', 3) == "abcdef")
+
 
 
 
