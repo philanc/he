@@ -114,7 +114,7 @@ a = {9,3,5,1}; table.sort(a); assert(he.equal(a, {1,3,5,9}))
 a = {}; table.sort(a); assert(he.equal(a, {}))
 a = {}; list.insert(a, 11); assert(a[1]==11)
 list.insert(a, 22); assert(a[2]==22)
--- any_elem, all_elems
+-- find_elem(), check_elems()
 a = {9,3,5,1}
 assert(list.find_elem(a, function(v) return v==5 end))
 assert(list.check_elems(a, function(v) return v<55 end))

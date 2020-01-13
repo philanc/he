@@ -52,6 +52,8 @@ content:
   rpad          pad a string on the right
   split         split a string on a separator pattern
   spsplit       split a string by whitespaces (sp, tab, cr, lf) 
+  eolsplit      split a string in lines
+  lines         an iterator delivering all the lines in a string
   rstrip        strip whitespace at beginning
   lstrip        strip whitespace at end
   strip         strip whitespace at beginning and end
@@ -301,13 +303,6 @@ function list.check_elems(lst, pred, ...)
 	return true
 end
 
---[[
-local inext = ipairs({}) 
-	-- equivalent to next() for pairs() - still valid with 5.2?!?
-	[kludgy. don't use it. use either ipairs() or an iterator]
-]]
-
-
 -- list-based set functions
 
 function list.uniq(lst)
@@ -351,6 +346,25 @@ function list.uremove(lst, e)
 		return nil
 	end
 end
+
+-- a very simple list iterator 
+-- use __call() to allow the list to be used as its own iterator.
+-- usage: 
+--	lst = list{11,22,33}
+-- 	for i, e in lst do print(i, e) end
+
+function list.__call(l, unused, i)
+	i = (i or 0) + 1
+	local e = l[i]
+	return e and i, e
+end
+
+-- Note: why 'unused'?  The __call metamethod of lst is called 
+-- with lst as first argument, plus the actual arguments of the call 
+-- as second and third arguments. For a list lst, the call "lst(x, y)"
+-- is actually "list.__call(lst, x, y)".
+-- see a more complete explanation in he.i or junk/misc.lua
+--
 
 
 ------------------------------------------------------------------------
@@ -523,7 +537,21 @@ function he.spsplit(s)
 end --spsplit()
 
 
-function he.lines(s) return he.split(s, '\r?\n') end
+function he.eolsplit(s) 
+	-- split s in a list of lines
+	return he.split(s, '\r?\n') 
+end
+
+function he.lines(s)
+	-- lines iterator:
+	-- "for l in he.lines(txt) do ... end"
+	-- return all the lines without the eol separator
+	-- (including the last line even if it doesn't end with eol)
+	-- assume lines are separated with CR, LF or CRLF
+	-- Note: CR alone _is_ a separator except in sequence CRLF
+	-- so "a\rb\n\rc\r\n" => "a", "b", "", "c"
+	return  string.gmatch(s, "([^\n\r]*)\r?\n?")
+end
 
 function he.lstrip(s)
 	-- remove whitespace at beginning of string s
@@ -1060,6 +1088,8 @@ function he.extend_string()
 	string.lpad  =  he.lpad
 	string.rpad  =  he.rpad
 	string.split  =  he.split
+	string.spsplit  =  he.spsplit
+	string.eolsplit  =  he.eolsplit
 	string.lines = he.lines
 	string.lstrip  =  he.lstrip
 	string.rstrip  =  he.rstrip
