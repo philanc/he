@@ -64,24 +64,25 @@ f = function(s)
 	for l in he.lines(s) do t:insert(l) end
 	return t
 end
-assert(list.lseq(f"", {""}))
-assert(list.lseq(f"a", {"a"}))
-assert(list.lseq(f"a\n", {"a"}))
-assert(list.lseq(f"a\r\n", {"a"}))
-assert(list.lseq(f"a\n\r", {"a", ""}))
-assert(list.lseq(f"a\rb\r", {"a", "b"}))
-assert(list.lseq(f"\na", {"", "a"}))
-assert(list.lseq(f"\r\na", {"", "a"}))
-assert(list.lseq(f"\r \na", {"", " ", "a"}))
+assert(f"":lseq{""})
+assert(f"a":lseq{"a"})
+assert(f"a\n":lseq{"a"})
+assert(f"a\r\n":lseq{"a"})
+assert(f"a\n\r":lseq{"a", ""})
+assert(f"a\rb\r":lseq{"a", "b"})
+assert(f"\na":lseq{"", "a"})
+assert(f"\r\na":lseq{"", "a"})
+assert(f"\r \na":lseq{"", " ", "a"})
 
 	
-
+-- *strip
 s = '\tabc  \r\n  '
 assert(he.strip(s) == 'abc') 
 assert(he.rstrip(s) == '\tabc')
 assert(he.lstrip(s) == 'abc  \r\n  ')
 assert(he.lstrip('\r\r\n\na') == 'a')
 
+-- rpad, lpad
 assert(he.rpad('abc', 6) == "abc   ")
 assert(he.lpad('abc', 6) == "   abc")
 assert(he.rpad('abc', 6, '-') == "abc---")
@@ -179,9 +180,8 @@ f = function(l)
 end
 local li, le
 li, le = f(list{11,22, 33})
-assert(list.lseq(li, {1,2,3}))
-assert(list.lseq(le, {11,22,33}))
-li, le = f(list{}); assert(list.lseq(li, {}) and list.lseq(le, {}))
+assert(li:lseq{1,2,3} and le:lseq{11,22,33})
+li, le = f(list{}); assert(li:lseq{} and le:lseq{})
 
 
 -- test list-based set functions
