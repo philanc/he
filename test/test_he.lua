@@ -22,7 +22,7 @@ assert(not string.split)
 local list = he.list
 local pp, ppl, ppt = he.pp, he.ppl, he.ppt
 --
-local a, b, c, d, f, k, l, s, t, u, v, x, y
+local a, b, c, d, f, k, l, l2, s, t, u, v, x, y
 
 ------------------------------------------------------------------------
 -- test string functions
@@ -59,7 +59,7 @@ s = "\nabc"; assert(list.lseq(he.eolsplit(s), {"", "abc"}))
 s = "ab\rc\n"; assert(list.lseq(he.eolsplit(s), {"ab\rc", ""}))
 s = "abc\r\ndef"; assert(list.lseq(he.eolsplit(s), {"abc", "def"}))
 -- lines() iterator
-local f = function(s)
+f = function(s)
 	local t = list()
 	for l in he.lines(s) do t:insert(l) end
 	return t
@@ -170,6 +170,19 @@ for i,v in ipairs(a:sorted()) do
 	b:insert(v) 
 end
 assert(b:concat('') == "112233")
+
+-- list iterator
+f = function(l)
+	local li, le = list(), list()
+	for i, e in l do le:insert(e); li:insert(i) end
+	return li, le
+end
+local li, le
+li, le = f(list{11,22, 33})
+assert(list.lseq(li, {1,2,3}))
+assert(list.lseq(le, {11,22,33}))
+li, le = f(list{}); assert(list.lseq(li, {}) and list.lseq(le, {}))
+
 
 -- test list-based set functions
 a = list();  b = a:uniq();  assert(b:equal{})
