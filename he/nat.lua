@@ -43,6 +43,158 @@ local tmpname = he.tmpname
 
 ------------------------------------------------------------------------
 
+local function shell(cmd, opt)
+	-- execute the command 'cmd' in a subprocess with popen()
+	-- (see the Lua os.popen() description) 
+	-- opt is an optional table with additional optional parameters.
+	-- return succ, code, strout, strerr  where succ is a boolean
+	-- (nil if the command failed or true), code is an integer status 
+	-- code. it is either the command exit code if the process exited, 
+	-- or a signal code if the process was interrupted by a signal
+	-- (the signal code is the signal value + 256).
+	-- 'strout' and 'strerr' are the command stdout and stderr 
+	-- returned as strings. They are captured in temp files or 
+	-- directly by popen() - see the options in the 'opt' table.
+	--
+	-- opt.cwd     
+	--   if defined, change working dir to opt.cwd value 
+        --   before running the command (default is no change dir)
+	-- opt.strin
+	--   a string that is passed to the command as stdin
+	-- opt.stdin (ignored if opt.strin is not defined)
+	--   either empty (nil) or the string 'tmp'
+	--   if 'tmp', the value of opt.strin is copied to a temp file
+	--   and the command stdin is redirected to the temp file.
+	--   The temp file is removed after execution.
+	--   if opt.stdin is empty, the opt.strin value is written 
+	--   to the popen pipe as the command stdin (popen mode 'w').
+ 	-- opt.stdout  
+	--   either empty (nil) or the string 'tmp'
+	--   if 'tmp', the command stdout is captured in a temp file and 
+	--   returned. The temp file is removed after execution
+	-- opt.stderr
+	--   either empty (nil) or 'tmp' or 'null' or 'stdout'
+	--   if 'tmp', the command stdout is captured in a temp file and 
+	--   returned. The temp file is removed after execution.
+	--   if 'null', the command stderr is redirected to /dev/null.
+	--   if 'stdout', the command stderr is redirected to stdout
+	--   (equivalent to appending " 2>&1 " after the command)
+	--
+	local strout, strerr = "", ""
+	local redir_in, redir_out, redir_err = "", "", ""
+	local tmpin, tmpout, tmperr
+	
+	-- the shell command template
+	local shfmt = [[
+		set -e
+		{
+		%s
+		%s
+		} %s %s %s ]]
+
+	-- optional cd before running the command
+	local chdir = ""
+	if opt.cwd then chdir = "cd " .. opt.cwd end
+	
+	local mode = 'r' -- the popen() mode
+	
+	-- setup stdin redirection, if needed
+	if opt.strin then
+		if not opt.stdin then 
+			mode = 'w'
+		elseif opt.stdin == 'tmp' then
+			tmpin = tmpname()
+			he.fput(tmpin, opt.stdin)
+			redir_in = strf(" <%s ", tmpin)
+		else
+			return nil, "invalid opt.stdin"
+		end
+	end
+
+	-- setup stderr redirection, if needed
+	if opt.stderr == "tmp" then
+		tmperr = tmpname()
+		redir_err = strf(" 2>%s ", tmperr)
+	elseif opt.stderr == "null" then 
+		redir_err = " 2> /dev/null "
+	elseif opt.stderr == "stdout" or not opt.stderr then 
+		redir_err = " 2>&1 "
+	end
+	
+	-- setup stdout redirection, if needed
+	if opt.stderr == "tmp" then
+		tmpout = tmpname()
+		redir_out = strf(" >%s ", tmpout)
+	end
+	
+	-- execute command
+	local shcmd = strf(shfmt, chdir, cmd, redir_in, redir_out, redir_err) 
+	local succ, exit, status = os.execute(shcmd)	
+	
+	XXXXXXXXXXXX  repl execute with popen. read/write as needed
+	
+	-- collect stdout, stderr and remove temp files if any
+	if tmpin then os.remove(tmpin) end
+	if tmpout then
+		strout = he.fget(tmpout)
+		os.remove(tmpout)
+	end
+	if tmperr then
+		strerr = he.fget(tmperr)
+		os.remove(tmperr)
+	end
+	
+	-- return results
+	if exit == "signal" then status = status + 256 end
+	return succ, status, strout, strerr
+
+end--shell()
+
+local function execute(cmd, opt)
+	local shs = [[
+	  he_nat_func() {
+		set -e
+		%s
+		%s
+	  }
+	  he_nat_func %s %s %s
+	]]
+	local chdir = ""
+	if opt.cwd then chdir = "cd " .. opt.cwd end
+	
+	local redir_in, redir_out, redir_err = "", "", ""
+	local tmpin, tmpout, tmperr
+	tmpout = tmpname()
+	redir_out = strf(" >%s ", tmpout)
+	if opt.stdin then 
+		tmpin = tmpname()
+		he.fput(tmpin, opt.stdin)
+		redir_in = strf(" <%s ", tmpin)
+	end
+	if opt.stderr == "yes" then
+		tmperr = tmpname()
+		redir_err = strf(" 2>%s ", tmperr)
+	elseif opt.stderr == "null" then 
+		redir_err = " 2> /dev/null "
+	elseif opt.stderr == "no" then 
+		redir_err = ""
+	elseif (opt.stderr == "out") or not opt.stderr then 
+		redir_err = " 2>&1 "
+	end
+	shs = strf(shs, chdir, cmd, redir_in, redir_out, redir_err) 
+	local succ, exit, status = os.execute(shs)
+	local strout, strerr
+	if tmpin then os.remove(tmpin) end
+	strout = he.fget(tmpout)
+	os.remove(tmpout)
+	if tmperr then
+		strerr = he.fget(tmperr)
+		os.remove(tmperr)
+	end
+	if exit == "signal" then status = status + 256 end
+	return succ, status, strout, strerr
+end--execute()
+
 local function execute2(cmd, strin)
 	-- invoke os.execute(). Supply string strin as stdin and return 
 	-- stdout and stderr merged in one string in addition to 
@@ -267,8 +419,19 @@ local function finddirs(dir)
 end
 
 
+function test01()
+	succ, status, sout, serr = execute(
+		"pwd", 
+		{cwd='/f/p3', stderr='yes'})
+	print(succ, status)
+	print("OUT", he.repr(sout))
+	print("ERR", he.repr(serr))
+end
+	
+test01()
 ------------------------------------------------------------------------
 return {
+	execute = execute,
 	execute2 = execute2,
 	execute3 = execute3,
 	lines = lines,

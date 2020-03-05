@@ -15,12 +15,38 @@ local henat = require 'he.nat'
 
 --~ he.interactive()
 
+local strf = string.format
 local strip = he.strip
 local sep, resep = hefs.sep, hefs.resep
 local win = test_windows
 
 -- test setup
-local tmp = he.tmpname('henat')
+local topdir = he.tmpname('henat')
+
+-- exit on error:    set -e 
+
+local function gonewtmpdir(name, tmpdir)
+	tmpdir = tmpdir or '/tmp'
+	local dirpath = tmpdir .. '/' .. name
+	local s = strf([[
+		set -e 
+		NAT_DIR=%s 
+		rm -r -f $NAT_DIR 
+		mkdir -p $NAT_DIR
+		cd $NAT_DIR
+		]], dirpath)
+	return s
+end
+
+
+local filldir = [[
+	mkdir d1
+	echo "hello bef" > d1/bef
+	echo "hello ab" > d1/ab
+	
+
+
+
 if hefs.isdir(tmp) then hefs.rmdirs(tmp) end
 assert(hefs.mkdir(tmp))
 hefs.pushd(tmp)

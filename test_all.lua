@@ -11,6 +11,8 @@ by the test function below.  (see eg. test_nacl)
 
 ]]
 
+package.path="./?.lua;./?/init.lua"
+
 local function test(mod)
 	local r = require("test.test_" .. mod)
 	local msg = (type(r) == "string") and r or "ok"
@@ -19,16 +21,16 @@ end
 
 ------------------------------------------------------------------------
 test "he"
-test "hefs"
+--~ test "hefs"
 test "hecsv"
 --~ test "hezen" -- luazen now built w/o norx. must use plc / revise the test
-test "henacl"
+--~ test "henacl"
 test "hegetopt"
 test "hepack"
 test "henat"
-test "hebs"
+--~ test "hebs"
 test "stx"
-test "hesock"
+--~ test "hesock"
 test "hehs"
 test "moe"
 
