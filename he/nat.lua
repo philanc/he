@@ -440,11 +440,13 @@ end--shell()
 	
 function test02()
 	succ, status, sout, serr = shell(
-		"md5sum"
---~ 		, 
+		"md5sumzz"
+		, 
 --~ 		{cwd='/f/p3', stderr='tmp'}
 --~ 		{cwd='/f/p3', strin="Hello!!", stdout='tmp'}
 --~ 		{cwd='/f/p3', strin="Hello!!", stdin='tmp'}
+--~ 		{cwd='/f/p3', strin="Hello!!", stderr='stdout', stdout='tmp'}
+		{cwd='/f/p3', strin="Hello!!", stderr='tmp'}
 --~ 		{cwd='/f/p3', strin="Hello!!", stdin='tmp', stdout='tmp'}
 --~ 		{cwd='/f/p3', strin="Hello!!", stdin='tmp', stderr='null'}
 --~ 		{cwd='/f/p3', strin="Hello!!", stdin='tmp', stderr='stdout'}
@@ -457,6 +459,7 @@ end
 test02()
 ------------------------------------------------------------------------
 return {
+	shell = shell,
 	execute = execute,
 	execute2 = execute2,
 	execute3 = execute3,
