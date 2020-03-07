@@ -78,7 +78,8 @@ content:
   -- misc file and pathname functions
   fget          return the content of a file as a string
   fput          write a string to a file
-  tmpdir        returns a temp directory
+  tmpdir        returns a temp directory path
+  tmppath       returns a temp path
   basename      strip directory and suffix from a file path
   dirname       strip last component from file path
   fileext       return the extension of a file path
@@ -755,7 +756,9 @@ end
 ------------------------------------------------------------------------
 -- OS / shell functions
 
-local function shell(cmd, opt)
+local strf = string.format
+
+function he.shell(cmd, opt)
 	-- execute the command 'cmd' in a subprocess with popen()
 	-- (see the Lua os.popen() description) 
 	-- opt is an optional table with additional optional parameters.
@@ -867,6 +870,16 @@ local function shell(cmd, opt)
 	return succ, status, strout, strerr
 
 end--shell()
+
+function he.sh(cmd)
+	-- convenience function. execute a command (with shell())
+	-- on success, return the stdout
+	-- on failure, return nil, msg
+	-- msg is "<status>. <stdout/stderr>"
+	local succ, code, strout = he.shell(cmd)
+	if succ then return strout end
+	return strf("Exit code: %s.  %s", code, strout)
+end --sh()
 
 
 function he.source_line(level)
