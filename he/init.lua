@@ -917,6 +917,21 @@ function he.tmpdir()
 	return os.getenv('TMP') or '/tmp'
 end
 
+function he.mktmpdir()
+	-- make a temp directory with a unique name.
+	-- return the temp dir pathname or nil, errmsg
+	local tmp = he.tmpdir()
+	local cmd = string.format(
+			"td=%s/he-%s-$$ ; mkdir $td; echo -n $td", 
+			tmp, he.isodate())
+	return he.sh(cmd)
+end
+
+function he.rmdir(dirpath)
+	-- remove directory and all its content (beware!! powerful footgun!)
+	return he.sh("rm -r " .. dirpath)
+end
+
 local function striprsep(p) 
 	-- remove sep at end of path
 	if p:match('^%a:/$') or p:match('^/$') then return p end
