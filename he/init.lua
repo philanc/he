@@ -1,4 +1,4 @@
--- Copyright (c) 2019  Phil Leblanc  -- see LICENSE file
+-- Copyright (c) 2020  Phil Leblanc  -- see LICENSE file
 
 ------------------------------------------------------------------------
 --[[	
@@ -71,8 +71,6 @@ content:
   isodate       convert time to ISO date representation
   iso2time      parse ISO date and return a time (sec since epoch)
   shell         execute a shell command, return stdout as a string
-  shlines       execute a shell command, return stdout as a list of lines
-  escape_sh     escape posix shell special chars
   source_line   return the current file and line number
   exitf         write a formatted message and exit from the program
   checkf        check a value. if false, exit with a formatted message
@@ -80,15 +78,11 @@ content:
   -- misc file and pathname functions
   fget          return the content of a file as a string
   fput          write a string to a file
-  pnormw        normalize a path for windows
-  pnorm         normalize a path for unix
   tmpdir        returns a temp directory
-  tmpname       returns a temp path
   basename      strip directory and suffix from a file path
   dirname       strip last component from file path
   fileext       return the extension of a file path
   makepath      concatenate a directory name and a file name
-  wdrive        return the drive letter for a windows path
   isabspath     return true if a path is absolute
 
   ---
@@ -98,7 +92,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he105, 200113'
+he.VERSION = 'he106, 200306'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -150,8 +144,6 @@ function he.cmpany(x, y)
 	end--if
 	return r
 end
-
-
 
 ------------------------------------------------------------------------
 -- class 
@@ -280,7 +272,7 @@ function list.lseq(lst, lst2)
 end
 
 function list.find(lst, elem)
-	-- return index of first matching element or false
+	-- return index of first occurence of elem or false
 	for i,v in ipairs(lst) do 
 		if v == elem then return i end 
 	end
@@ -353,7 +345,7 @@ end
 --	lst = list{11,22,33}
 -- 	for i, e in lst do print(i, e) end
 
-function list.__call(l, unused, i)
+function list.__call(l, unused, i) -- keep 'unused' here. see note.
 	i = (i or 0) + 1
 	local e = l[i]
 	return e and i, e
@@ -695,24 +687,27 @@ end--ntos()
 ------------------------------------------------------------------------
 -- date functions
 
-
-
-function he.isodate(t)	 -- format: 20090709T122122
-	return os.date("%Y%m%dT%H%M%S", t) 
+function he.isodate(t, f)
+	-- return formatted dat-time as a string
+	-- t: a unix time (integer). t is optional. defaults to now.
+	-- f: a format indicator (see values in table below)
+	-- f is optional. defaults to "1" -- local time, 20090709_122122
+	if type(t) == 'string' then f = t; t = nil end
+	f = f or "1"
+	local ft = {
+	  ["0"]  = "%Y%m%dT%H%M%S",            -- 20090709T122122  (local)
+	  ["0u"] = "!%Y%m%dT%H%M%SZ",          -- 20090709T122122  (utc)
+	  ["1"]  = "%Y%m%d_%H%M%S",            -- 20090709_122122  (local)
+	  ["1u"] = "!%Y%m%d_%H%M%S",           -- 20090709_122122  (utc)
+	  ["2"]  = "%Y-%m-%d %H:%M:%S",        -- 2009-07-09 12:21:22 (local)
+	  ["2u"] = "!%Y-%m-%d %H:%M:%S UTC",   -- 2009-07-09 12:21:22 UTC
+	  ["2z"] = "%Y-%m-%d %H:%M:%S %z",     -- 2009-07-09 12:21:22 -0500
+	  ["2Z"] = "%Y-%m-%d %H:%M:%S %Z",     -- 2009-07-09 12:21:22 EST
+	}
+	local fmt = ft[f] or ft["1"]
+	return os.date(fmt, t)
 end
-
-function he.isodate19(t)	 -- format: 2009-07-09 12:21:22
-	return os.date("%Y-%m-%d %H:%M:%S", t) 
-end
-
-function he.isodate11(t)	 -- format: 090709_1221
-	return os.date("%y%m%d_%H%M", t) 
-end
-
-function he.isodate10(t)	 -- format: 0907091221
-	return os.date("%y%m%d%H%M", t) 
-end
-
+	
 function he.iso2time(s)
 	-- parse an iso date - return a time (seconds since epoch)
 	-- format: 20090709T122122 or 20090709T1234 or or 20090709
@@ -760,49 +755,119 @@ end
 ------------------------------------------------------------------------
 -- OS / shell functions
 
-function he.shell(cmd)
-	-- execute cmd; return stdout as a string and a status code.
-	-- the status code is the exit code, or if the program has been 
-	-- interrupted by a signal, 128 + the signal number
-	-- [back to 128+N. convention for most shells is 128+N, 
-	--  ksh93 is 256+N so maybe 1000+N was a bit exotic...]
-	local f = io.popen(cmd) 
-	local s = f:read("*a")
-	-- close on a popen returns the same values as os.execute()
-	-- success, exit type (exit or signal), exit code or signal number
+local function shell(cmd, opt)
+	-- execute the command 'cmd' in a subprocess with popen()
+	-- (see the Lua os.popen() description) 
+	-- opt is an optional table with additional optional parameters.
+	-- return succ, code, strout, strerr  where succ is a boolean
+	-- (nil if the command failed or true), code is an integer status 
+	-- code. it is either the command exit code if the process exited, 
+	-- or a signal code if the process was interrupted by a signal
+	-- (the signal code is the signal value + 256).
+	-- 'strout' and 'strerr' are the command stdout and stderr 
+	-- returned as strings. They are captured in temp files or 
+	-- directly by popen() - see the options in the 'opt' table.
+	--
+	-- opt.cwd = nil | dirpath
+	--    if defined, change working dir to dirpath
+        --    before running the command
+	-- opt.strin
+	--    a string that is passed to the command as stdin
+	-- opt.stdin = nil | "tmp"
+	--    (ignored if opt.strin is not defined)
+	--    'tmp' => the value of opt.strin is copied to a temp file
+	--        and the command stdin is redirected to the temp file.
+	--        The temp file is removed after execution.
+	--    nil => the opt.strin value is written to the popen pipe 
+	--       as the command stdin (popen mode 'w').
+ 	-- opt.stdout = nil | "tmp"
+	--    'tmp' => the command stdout is captured in a temp file and 
+	--       returned. The temp file is removed after execution
+	-- opt.stderr = nil | "tmp" | "null | "stdout"
+	--    "stdout" or nil => stderr is redirected to stdout
+	--       (equivalent to appending " 2>&1 " after the command)
+	--    "tmp" => stderr is captured in a temp file and returned. 
+	--        The temp file is removed after execution.
+	--    "null" => stderr is redirected to /dev/null.
+	--
+	local strout, strerr = "", ""
+	local redir_in, redir_out, redir_err = "", "", ""
+	local tmpin, tmpout, tmperr
+	
+	opt = opt or {}  -- opt is optional
+	
+	-- the shell command template
+	local shfmt = [[
+		set -e
+		{
+		%s
+		%s
+		} %s %s %s ]]
+
+	-- optional cd before running the command
+	local chdir = ""
+	if opt.cwd then chdir = "cd " .. opt.cwd end
+	
+	local mode = 'r' -- the popen() mode
+	
+	-- setup stdin redirection, if needed
+	if opt.strin then
+		if not opt.stdin then 
+			mode = 'w'
+		elseif opt.stdin == 'tmp' then
+			tmpin = tmpname()
+			he.fput(tmpin, opt.stdin)
+			redir_in = strf(" <%s ", tmpin)
+		else
+			return nil, "invalid opt.stdin"
+		end
+	end
+
+	-- setup stderr redirection, if needed
+	if opt.stderr == "tmp" then
+		tmperr = tmpname()
+		redir_err = strf(" 2>%s ", tmperr)
+	elseif opt.stderr == "null" then 
+		redir_err = " 2> /dev/null "
+	elseif opt.stderr == "stdout" or not opt.stderr then 
+		redir_err = " 2>&1 "
+	end
+	
+	-- setup stdout redirection, if needed
+	if opt.stdout == "tmp" then
+		tmpout = tmpname()
+		redir_out = strf(" >%s ", tmpout)
+	end
+	
+	-- execute command
+	local shcmd = strf(shfmt, chdir, cmd, redir_in, redir_out, redir_err)
+--~ 	print("MODE: " .. mode)
+--~ 	print("SH: " .. shcmd)
+	local f = io.popen(shcmd, mode)
+	if mode == 'w' then
+		f:write(opt.strin)
+	else
+		strout = f:read("*a")
+	end
 	local succ, exit, status = f:close()
-	-- return convention: 
-	-- if exit=='signal', return 128 + signal number
-	-- (same convention as most shells)
-	-- (it allows to return only one status code and test easily.
-	-- return s even in case of failure. it allows to get stderr
-	-- with a redirection, eg.: s, e = he.shell("some cmd 2>&1")
-	return s, (exit=='signal' and status+128 or status)
-end
+	
+	-- collect stdout, stderr and remove temp files if any
+	if tmpin then os.remove(tmpin) end
+	if tmpout then
+		strout = he.fget(tmpout)
+		os.remove(tmpout)
+	end
+	if tmperr then
+		strerr = he.fget(tmperr)
+		os.remove(tmperr)
+	end
+	
+	-- return results
+	if exit == "signal" then status = status + 256 end
+	return succ, status, strout, strerr
 
-function he.shlines(cmd)
-	-- same as shell() - returns a list of lines instead of a string
-	-- execute cmd; return stdout as a list of lines and a status code.
-	local f = io.popen(cmd) 
-	local linelist = list() 
-	while true do
-		local s, m = f:read()
-		if not s then break end
-		linelist:insert(s)
-	end		
-	local succ, exit, status = f:close()
-	return linelist, (exit=='signal' and status+128 or status)
-end
+end--shell()
 
--- he.cmd removed
--- to redirect stderr to stdout, append " 2>&1"
--- should work on unix and recent windows - win7 also?)
-
-function he.escape_sh(s)  
-	-- escape posix shell special chars: [ ] ( ) ' " \
-	-- (works for unix, not windows...)
-	return string.gsub(s, "([ %(%)%\\%[%]\"'])", "\\%1")
-end
 
 function he.source_line(level)
 	-- return <sourcefilename>:<current line>
@@ -831,54 +896,12 @@ function he.checkf(val, fmt, ...)
 end
 
 ------------------------------------------------------------------------
--- small windows/unix dependant definitions (filepath, tmp files)
+-- small pathname utility functions
 --
 he.pathsep = string.sub(package.config, 1, 1)  -- path separator
-he.windows = ( string.byte(he.pathsep) == 92)  -- 92 is '\' 
-	-- beware cygwin!!  pathsep == '/'.  
-	-- is it considered as windows or linux?
-	
-he.newline = he.windows and '\r\n' or '\n'
 
 function he.tmpdir()
-	return he.windows and he.pnorm(os.getenv('TMP')) 
-		or os.getenv('TMP') or '/tmp'
-end
-
-function he.tmpname(fname)
-	-- return an absolute path for a temp file
-	-- if fname is provided, it is appended to  he.tmpdir()
-	-- else a unique name generated by os.tmpname() is provided 
-	-- 
-	-- on windows, slua 5.3.3 compiled with mingw
-	-- os.tmpname returns smtg like "\sl5s.3"	
-	-- with lua 5.3.4 compiled with VS2014/VC, 
-	-- os.tmpname returns an absolute path like "C:\...\sl5s.3"
-	if fname then 
-		return he.tmpdir() .. '/' .. fname
-	end
-	if he.windows then
-		return he.tmpdir() .. '/' 
-		       .. he.basename(he.pnorm(os.tmpname()))
-	else
-		return os.tmpname()
-	end
-end
-
--- pathname functions
-
-function he.pnormw(p)
-	-- normalize a path for windows
-	local np = string.gsub(p, '/', '\\')
-	-- (keep 'local np =...' to ensure that only one value is returned)
-	return np
-end
-
-function he.pnorm(p)
-	-- normalize a path (default is unix)
-	local np = string.gsub(p, '%\\', '/')
-	-- (keep 'local np =...' to ensure that only one value is returned)
-	return np
+	return os.getenv('TMP') or '/tmp'
 end
 
 local function striprsep(p) 
@@ -922,22 +945,15 @@ end
 
 function he.makepath(dirname, name)
 	-- returns a path made with a dirname and a filename
-	-- path uses unix convention (separator is '/')
 	-- if dirname is "", name is returned
 	if dirname == "" then return name end
 	if dirname:match('/$') then return dirname .. name end
 	return dirname .. '/' .. name
 end
 
-function he.wdrive(p) 
-	-- return the drive letter for a windows path, or nil
-	return he.windows and p:match('^(%a):')
-end
-
 function he.isabspath(p)
-	-- return true if p is an absolute path
-	-- either '/something' on unix or 'a:/something' on windows
-	return p:match('^/') or (he.windows and p:match('^%a:/'))
+	-- return true if p is an absolute path ('/something')
+	return p:match('^/')
 end
 
 
@@ -1031,16 +1047,6 @@ function he.pix(i)
 	-- print integer i as a hex number
 	pf("0x%08x", i)
 end
-
---
---~ he.prsep_ch = '-'  -- character used for separator line
---~ he.prsep_ln = 60  -- length of separator line
---~ --
---~ function he.prsep(...) 
---~ --- print a separator line, then print arguments
---~ 	print(string.rep(he.prsep_ch, he.prsep_ln)) 
---~ 	if select('#', ...) > 0  then  print(...)  end
---~ end
 
 ------------------------------------------------------------------------
 -- elapsed time, used memory
