@@ -989,53 +989,49 @@ end
 
 ------------------------------------------------------------------------
 -- convenience functions for interactive usage or quick throw-away scripts
--- (used to be in hei.lua)
+-- (used to be in hei.lua - modified 200308)
 
 
--- simplistic serialization functions (list to string, table to string)
--- (convenient for debug display or limited use)
-
-function he.l2s(t)
-	-- returns list t as a string 
-	-- (an evaluable lua list, at least for bool, str and numbers)
-	-- !!  beware:  elements of type table are treated by t2s()  !!
-	local rl = {}
-	local repr, app, join = he.repr, he.list.app, he.list.join
-	for i, v in ipairs(t) do 
-		table.insert(rl, 
-			(type(v) == "table") and he.t2s(v) or repr(v))
+-- display a list
+function he.ltos(t, nl)
+	-- return a string rep of a list, or of the list part of a table
+	-- if 'nl' is true, each element is displayed on a new line.
+	local prefix, suffix, indent, sep = '{ ', ' }', '', ', '
+	if nl then 
+		prefix, suffix, indent, sep = '{\n', '\n}', '   ', '\n'
 	end
-	return '{' .. table.concat(rl, ', ') .. '}'
-end
+	local function tos(x, indent) return indent .. tostring(x) end
+	if getmetatable(t) == he.list then prefix = 'list'..prefix end
+	return prefix .. list.mapall(t, tos, indent):concat(sep) .. suffix
+end --ltos()
 
-function he.t2s(t, depth)
-	-- return table t as a string 
-	-- (an evaluable lua table, at least for bool, str and numbers)
-	-- (!!cycles are not detected!! - t2s() errors if it recurses
-	-- more than 20 levels)
-	local repr, app, join = he.repr, he.list.app, he.list.join
-	depth = (depth or 0) + 1
-	if depth > 20 then
-		error("he.t2s: depth error")
+-- display a table
+function he.ttos(t, nl)
+	-- return a string rep of a table. if the table is a he.list
+	-- it is displayed as a list(he.ltos())
+	-- if 'nl' is true, each key/value pair is displayed on a new line.
+	if getmetatable(t) == he.list then return he.ppl(t, nl) end
+	local prefix, suffix, indent, sep = '{ ', ' }', '', ', '
+	if nl then 
+		prefix, suffix, indent, sep = '{\n', '\n}', '   ', '\n'
 	end
-	if type(t) ~= "table" then return repr(t) end
-	if getmetatable(t) == he.list then return he.l2s(t)  end
-	local rl = {}
-	-- pairs() is no longer deterministic: several runs on same table
-	-- return elements in different order...  (lua 5.3?)
-	for i, k in ipairs(he.sortedkeys(t)) do 
-		if k == "__index" then 
-			-- skip it (or infinite recursion on classes...)
-		else 
-			table.insert(rl, '[' .. repr(k) .. ']=' 
-				.. he.t2s(t[k], depth)) 
-		end
+	local function tos(k, v, indent) 
+		return strf("%s%s = %s", indent, tostring(k), tostring(v))
 	end
-	return '{' .. table.concat(rl, ', ') .. '}'
-end--t2s()
+	local repl = list()
+	local v
+	for i, k in he.sortedkeys(t) do
+		repl:insert(tos(k, t[k], indent))
+	end
+	local rep = prefix .. repl:concat(sep) .. suffix
+	return rep
+end --ttos()
+
+function he.ppl(t, nl) print(he.ltos(t, nl)) end
+function he.ppt(t, nl) print(he.ttos(t, nl)) end
+
 
 -- display any object
-
 function he.pp(...)
 	local repr = he.repr
 	local x
