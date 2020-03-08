@@ -871,12 +871,14 @@ function he.shell(cmd, opt)
 
 end--shell()
 
-function he.sh(cmd)
-	-- convenience function. execute a command (with shell())
+function he.sh(cmd, cwd)
+	-- convenience function. execute a command (with he.shell())
+	-- cwd is an optional directory path. if provided, the command
+	-- is executed in this directory.
 	-- on success, return the stdout
 	-- on failure, return nil, msg
 	-- msg is "<status>. <stdout/stderr>"
-	local succ, code, strout = he.shell(cmd)
+	local succ, code, strout = he.shell(cmd, {cwd=cwd})
 	if succ then return strout end
 	return strf("Exit code: %s.  %s", code, strout)
 end --sh()
