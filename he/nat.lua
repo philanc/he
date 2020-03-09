@@ -5,10 +5,7 @@
 
 === henat module  -- wrap OS native commands
 
--- Complement os.execute() - (poor man's popen3, popen4)
-execute2  same as execute, with stdin and stdout redirected to tmp files
-execute3  same as execute, with stdin, stdout and stderr redirected 
-exec      convenience function (wraps execute2) 
+200309  cleanup. use the new he.sh()/shlines().
 
 -- wrap InfoZip zip/unzip commands
 zip
@@ -16,21 +13,13 @@ unzip
 ziplist
 
 -- wrap find  (works with old UnxUtils find command on windows)
+findlist
 findfiles
 finddirs
-
--- wrap sdelete, shred/rm
-sdelete
-
--- wrap hashdeep commands
-md5deep
-sha256deep
-
 
 ]]
 
 local he = require 'he'
---~ he.interactive()
 
 local strf = string.format
 local byte, char = string.byte, string.char
@@ -39,128 +28,12 @@ local strip, split = string.strip, string.split
 local list = he.list
 local insert, concat = table.insert, table.concat
 
-local tmpname = he.tmpname  
-
-------------------------------------------------------------------------
-
-local function execute(cmd, opt)
-	local shs = [[
-	  he_nat_func() {
-		set -e
-		%s
-		%s
-	  }
-	  he_nat_func %s %s %s
-	]]
-	local chdir = ""
-	if opt.cwd then chdir = "cd " .. opt.cwd end
-	
-	local redir_in, redir_out, redir_err = "", "", ""
-	local tmpin, tmpout, tmperr
-	tmpout = tmpname()
-	redir_out = strf(" >%s ", tmpout)
-	if opt.stdin then 
-		tmpin = tmpname()
-		he.fput(tmpin, opt.stdin)
-		redir_in = strf(" <%s ", tmpin)
-	end
-	if opt.stderr == "yes" then
-		tmperr = tmpname()
-		redir_err = strf(" 2>%s ", tmperr)
-	elseif opt.stderr == "null" then 
-		redir_err = " 2> /dev/null "
-	elseif opt.stderr == "no" then 
-		redir_err = ""
-	elseif (opt.stderr == "out") or not opt.stderr then 
-		redir_err = " 2>&1 "
-	end
-	shs = strf(shs, chdir, cmd, redir_in, redir_out, redir_err) 
-	local succ, exit, status = os.execute(shs)
-	local strout, strerr
-	if tmpin then os.remove(tmpin) end
-	strout = he.fget(tmpout)
-	os.remove(tmpout)
-	if tmperr then
-		strerr = he.fget(tmperr)
-		os.remove(tmperr)
-	end
-	if exit == "signal" then status = status + 256 end
-	return succ, status, strout, strerr
-end--execute()
-
-local function execute2(cmd, strin)
-	-- invoke os.execute(). Supply string strin as stdin and return 
-	-- stdout and stderr merged in one string in addition to 
-	-- the 3 os.execute() return values
-	-- strin is optional. If not provided, no stdin redirection
-	-- is performed.
-	local tmpin = tmpname()
-	local tmpout = tmpname()
-	local cmd2
-	if strin then
-		he.fput(tmpin, strin)
-		cmd2 = strf("%s <%s >%s 2>&1 ", cmd, tmpin, tmpout)
-	else 
-		cmd2 = strf("( %s ) >%s 2>&1 ", cmd, tmpout)
-	end
-	local succ, exit, status = os.execute(cmd2)
-	local strout = he.fget(tmpout)
-	if strin then os.remove(tmpin) end
-	os.remove(tmpout)
-	return succ, exit, status, strout
-end
-
-local function execute3(cmd, strin)
-	-- invoke os.execute(). Supply string strin as stdin and return stdout 
-	-- and stderr as strings in addition to the 3 os.execute() return values
-	-- strin is optional. If not provided, no stdin redirection
-	-- is performed.
-	local tmpin = tmpname()
-	local tmpout = tmpname()
-	local tmperr = tmpname()
-	local cmd3
-	if strin then
-		he.fput(tmpin, strin)
-		cmd3 = strf("( %s ) <%s >%s 2>%s", cmd, tmpin, tmpout, tmperr)
-	else 
-		cmd3 = strf("( %s ) >%s 2>%s", cmd, tmpout, tmperr)
-	end
-	local succ, exit, status = os.execute(cmd3)
-	local strout = he.fget(tmpout)
-	local strerr = he.fget(tmperr)
-	if strin then os.remove(tmpin) end
-	os.remove(tmpout)
-	os.remove(tmperr)
-	return succ, exit, status, strout, strerr
-end
-
-local function lines(s)
-	-- return an iterator returning the lines in s
-	-- usage: for l in lines(text) do . . . end
-	-- note: if the last line doesn't end with CRLF or LF 
-	-- it is not returned. (shouldn't be a problem with 
-	-- output of shell commands -- else, use he.lines())
-	return string.gmatch(s, "(.-)[\r]?\n") 
-end
-
-local function exec(cmd, strin)
-	-- convenience function. execute a command (with execute2())
-	-- on success, return the stdout
-	-- on failure, return nil, msg
-	-- msg is "<status>. <stdout/stderr>"
-	-- <status> is <exit>: <status code or signal number>
-	-- <exit> is either "exit" or "signal", as returned by os.execute()
-	-- strin is optional (see execute2())
-	local succ, exit, status, strout = execute2(cmd, strin)
-	if succ then return strout end
-	return nil, strf("%s: %s. %s", exit, tostring(status), strout)
-end
-
--- exit: 127. sh: UNKNOWN: command not found
-
+local nat = {} -- the he.nat module
 	
 ------------------------------------------------------------------------
 --[[  notes
+
+-- exit: 127. sh: UNKNOWN: command not found
 
 ===  180912    run a cmd with a timeout
 
@@ -241,34 +114,38 @@ local function reformat_ziplines(ziplines)
     return list.map(nzt, mkl)
 end
 
-local function ziplist(zipfn)
-    local zl = he.shlines('unzip -ZTs '..zipfn)
-    if #zl < 2 then return nil end
+function nat.ziplist(zipfn)
+    local zl, msg = he.shlines('unzip -ZTs '..zipfn)
+    if (not zl) or #zl < 2 then return nil, "ziplist error" end
     local nzl = reformat_ziplines(zl)
     return nzl
 end
 
-local function zip(fn, zipfn)
-    zipfn = zipfn or fn..'.zip'
---~     ret = os.execute(string.format('zip -r %s %s', zipfn, fn))
-    return he.shell(string.format('zip -q -r %s %s', zipfn, fn))
+function nat.zip(fn, zipfn)
+	if type(fn) == "table" then fn = table.concat(fn, " ") end
+	if fn:find(' ') and not zipfn then
+		return nil, "no zipfile name"
+	else
+		zipfn = zipfn or fn..'.zip'
+	end
+	return he.sh(strf('zip -q -r %s %s', zipfn, fn))
 end
 
-local function unzip(zipfn, dirfn)
+function nat.unzip(zipfn, dirfn)
 	-- extract in dirfn or current dir if dirfn is not specified
 	dirfn = dirfn or '.'
-    return he.shell(string.format('unzip -d %s %s', dirfn, zipfn))
-end
-
-local function tar(fn, zipfn)
-    zipfn = zipfn or fn..'.tar'
---~     ret = os.execute(string.format('zip -r %s %s', zipfn, fn))
-    return he.shell(string.format('tar cf %s %s', zipfn, fn))
+	return he.sh(strf('unzip -d %s %s', dirfn, zipfn))
 end
 
 
-local function tartos(fn)
-    return he.shell(string.format('tar cf - %s', fn))
+function nat.tartos(fn)
+	-- tar a list of files, return the result as a string
+	-- fn is either a file/directory name ("file1"), or a 
+	-- space-separated sequence of filenames("f1 f2 f3"), or
+	-- a list of filenames( {"f1", "f2", "f3"} )
+	-- note: '*' is not supported.
+	if type(fn) == "table" then fn = table.concat(fn, " ") end
+	return he.sh(strf('tar cf - %s', fn))
 end
 
 
@@ -279,7 +156,7 @@ end
 local flist_cmd = 
 	'find %s -type f -printf "%%TY%%Tm%%Td_%%TH%%TM\t%%s\t%%p\\n" '
 
-local function findlist(dir)
+function nat.findlist(dir)
 	local ll, status = he.shlines(strf(flist_cmd, dir))
 	if not ll then return nil, status end
 --~ 	he.pp(ll)
@@ -294,14 +171,14 @@ local function findlist(dir)
 	return rl
 end
 
-local function findfiles(dir)
+function nat.findfiles(dir)
 	local cmd = 'find %s -type f '
 	r, status = he.shlines(strf(cmd, dir))
 	return r, status
 end
 
 
-local function finddirs(dir)
+function nat.finddirs(dir)
 	-- find depth-first - makes it easier to delete a file tree
 	-- and can be easily sorted for a more natural order
 	local cmd = 'find %s -type d -depth '
@@ -311,17 +188,17 @@ end
 
 ------------------------------------------------------------------------
 
-local function curl_head(url)
+function nat.curl_head(url)
 	return he.sh('curl -s -S -I ' .. url)
 end
 
-local function curl_get(url, outfile)
+function nat.curl_get(url, outfile)
 	outfile = outfile or '-'
 	local cmd = strf("curl -sS -o %s %s", outfile, url)
 	return he.sh(cmd)
 end
 
-local function wget(url, outfile)
+function nat.wget(url, outfile)
 	outfile = outfile or '-'
 	local cmd = strf("wget -q -O %s %s", outfile, url)
 	return he.sh(cmd)
@@ -329,57 +206,5 @@ end
 
 
 ------------------------------------------------------------------------
+return nat
 
-
-function test01()
-	succ, status, sout, serr = execute(
-		"pwd", 
-		{cwd='/f/p3', stderr='yes'})
-	print(succ, status)
-	print("OUT", he.repr(sout))
-	print("ERR", he.repr(serr))
-end
-
-
-local shell = he.shell
-
-	
-function test02()
-	succ, status, sout, serr = shell(
-		"md5sumzz"
-		, 
---~ 		{cwd='/f/p3', stderr='tmp'}
---~ 		{cwd='/f/p3', strin="Hello!!", stdout='tmp'}
---~ 		{cwd='/f/p3', strin="Hello!!", stdin='tmp'}
---~ 		{cwd='/f/p3', strin="Hello!!", stderr='stdout', stdout='tmp'}
-		{cwd='/f/p3', strin="Hello!!", stderr='tmp'}
---~ 		{cwd='/f/p3', strin="Hello!!", stdin='tmp', stdout='tmp'}
---~ 		{cwd='/f/p3', strin="Hello!!", stdin='tmp', stderr='null'}
---~ 		{cwd='/f/p3', strin="Hello!!", stdin='tmp', stderr='stdout'}
-	)
-	print(succ, status)
-	print("OUT", he.repr(sout))
-	print("ERR", he.repr(serr))
-end
-	
-test02()
-------------------------------------------------------------------------
-return {
-	shell = shell,
-	execute = execute,
-	execute2 = execute2,
-	execute3 = execute3,
-	lines = lines,
-	exec = exec,
-	--
-	zip = zip, 
-	unzip = unzip, 
-	ziplist = ziplist, 
-	--
-	findlist0 = findlist0,
-	findlist = findlist,
-	findfiles = findfiles,
-	finddirs = finddirs,
-	--
-	
-}
