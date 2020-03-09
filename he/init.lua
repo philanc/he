@@ -697,7 +697,7 @@ function he.isodate(t, f)
 	f = f or "1"
 	local ft = {
 	  ["0"]  = "%Y%m%dT%H%M%S",            -- 20090709T122122  (local)
-	  ["0u"] = "!%Y%m%dT%H%M%SZ",          -- 20090709T122122  (utc)
+	  ["0u"] = "!%Y%m%dT%H%M%SZ",          -- 20090709T122122Z  (utc)
 	  ["1"]  = "%Y%m%d_%H%M%S",            -- 20090709_122122  (local)
 	  ["1u"] = "!%Y%m%d_%H%M%S",           -- 20090709_122122  (utc)
 	  ["2"]  = "%Y-%m-%d %H:%M:%S",        -- 2009-07-09 12:21:22 (local)
@@ -872,7 +872,7 @@ function he.shell(cmd, opt)
 end--shell()
 
 function he.sh(cmd, cwd)
-	-- convenience function. execute a command (with he.shell())
+	-- convenience function: execute a command (with he.shell())
 	-- cwd is an optional directory path. if provided, the command
 	-- is executed in this directory.
 	-- on success, return the stdout
@@ -883,6 +883,15 @@ function he.sh(cmd, cwd)
 	return strf("Exit code: %s.  %s", code, strout)
 end --sh()
 
+function he.shlines(cmd, cwd)
+	-- convenience function: execute a command with he.sh()
+	-- and return result as a list of lines, or nil, errmsg.
+	local s, msg = he.sh(cmd, cwd)
+	if not s then return s, msg end
+	local ll = list()
+	for l in lines(s) do ll:insert(l) end
+	return ll	
+end -- shlines()
 
 function he.source_line(level)
 	-- return <sourcefilename>:<current line>
@@ -1010,7 +1019,7 @@ function he.ttos(t, nl)
 	-- return a string rep of a table. if the table is a he.list
 	-- it is displayed as a list(he.ltos())
 	-- if 'nl' is true, each key/value pair is displayed on a new line.
-	if getmetatable(t) == he.list then return he.ppl(t, nl) end
+	if getmetatable(t) == he.list then return he.ltos(t, nl) end
 	local prefix, suffix, indent, sep = '{ ', ' }', '', ', '
 	if nl then 
 		prefix, suffix, indent, sep = '{\n', '\n}', '   ', '\n'

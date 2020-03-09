@@ -297,7 +297,6 @@ end
 local function findfiles(dir)
 	local cmd = 'find %s -type f '
 	r, status = he.shlines(strf(cmd, dir))
-	if r and he.windows then r = r:map(he.pnorm) end
 	return r, status
 end
 
@@ -307,9 +306,29 @@ local function finddirs(dir)
 	-- and can be easily sorted for a more natural order
 	local cmd = 'find %s -type d -depth '
 	r, status = he.shlines(strf(cmd, dir))
-	if r and he.windows then r = r:map(he.pnorm) end
 	return r, status
 end
+
+------------------------------------------------------------------------
+
+local function curl_head(url)
+	return he.sh('curl -s -S -I ' .. url)
+end
+
+local function curl_get(url, outfile)
+	outfile = outfile or '-'
+	local cmd = strf("curl -sS -o %s %s", outfile, url)
+	return he.sh(cmd)
+end
+
+local function wget(url, outfile)
+	outfile = outfile or '-'
+	local cmd = strf("wget -q -O %s %s", outfile, url)
+	return he.sh(cmd)
+end
+
+
+------------------------------------------------------------------------
 
 
 function test01()
