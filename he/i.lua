@@ -13,8 +13,8 @@ list = he.list
 
 -- add some convenience display functions
 
-function ppl(lst)  print(he.l2s(lst)) end -- display a list
-function ppt(lst)  print(he.t2s(lst)) end -- display a table
+function ppl(lst)  print(he.ltos(lst)) end -- display a list
+function ppt(lst)  print(he.ttos(lst)) end -- display a table
 function ppk(t) print(he.sortedkeys(t):concat(", ")) end
 
 pf = he.printf	-- print with a format string

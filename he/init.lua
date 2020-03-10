@@ -818,7 +818,7 @@ function he.shell(cmd, opt)
 		if not opt.stdin then 
 			mode = 'w'
 		elseif opt.stdin == 'tmp' then
-			tmpin = tmpname()
+			tmpin = os.tmpname()
 			he.fput(tmpin, opt.stdin)
 			redir_in = strf(" <%s ", tmpin)
 		else
@@ -828,7 +828,7 @@ function he.shell(cmd, opt)
 
 	-- setup stderr redirection, if needed
 	if opt.stderr == "tmp" then
-		tmperr = tmpname()
+		tmperr = os.tmpname()
 		redir_err = strf(" 2>%s ", tmperr)
 	elseif opt.stderr == "null" then 
 		redir_err = " 2> /dev/null "
@@ -838,7 +838,7 @@ function he.shell(cmd, opt)
 	
 	-- setup stdout redirection, if needed
 	if opt.stdout == "tmp" then
-		tmpout = tmpname()
+		tmpout = os.tmpname()
 		redir_out = strf(" >%s ", tmpout)
 	end
 	
@@ -880,7 +880,7 @@ function he.sh(cmd, cwd)
 	-- msg is "<status>. <stdout/stderr>"
 	local succ, code, strout = he.shell(cmd, {cwd=cwd})
 	if succ then return strout end
-	return strf("Exit code: %s.  %s", code, strout)
+	return nil, strf("Exit code: %s.  %s", code, strout)
 end --sh()
 
 function he.shlines(cmd, cwd)
@@ -889,7 +889,7 @@ function he.shlines(cmd, cwd)
 	local s, msg = he.sh(cmd, cwd)
 	if not s then return s, msg end
 	local ll = list()
-	for l in lines(s) do ll:insert(l) end
+	for l in he.lines(s) do ll:insert(l) end
 	return ll	
 end -- shlines()
 

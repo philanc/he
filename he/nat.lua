@@ -204,7 +204,6 @@ function nat.wget(url, outfile)
 	return he.sh(cmd)
 end
 
-
 ------------------------------------------------------------------------
 return nat
 
