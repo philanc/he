@@ -23,6 +23,8 @@ local p, p2, c, msg, clen, x, y, z
 -- string en/decryption
 p = "hello"
 c = moe.encrypt(k, p, true)
+p2 = moe.decrypt(k, c, true)
+assert(p2 == p)
 --~ print("#c, c:", #c, c)
 
 -- switch to plc-based crypto for decryption
@@ -33,7 +35,16 @@ assert(a == "plc")
 assert(b == "/dev/urandom")
 --~ print("crypto and nonce generation: ", moe.use())
 assert(moe.decrypt(k, c, true) == p)
---
+
+
+-- string en/decryption (simplified API)
+p = "hello"
+c = moe.sencrypt("keyfile content", p)
+p2 = moe.sdecrypt("keyfile content", c)
+assert(p2 == p)
+--~ print("#c, c:", #c, c)
+
+
 -- file names
 local fbase = "/tmp/" .. os.getenv("USER") .. "-moetest"
 local fnp = fbase .. ".p"

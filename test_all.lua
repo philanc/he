@@ -11,7 +11,7 @@ by the test function below.  (see eg. test_nacl)
 
 ]]
 
-package.path="./?.lua;./?/init.lua"
+package.path="./?.lua;./?/init.lua;" .. package.path
 
 local function test(mod)
 	local r = require("test.test_" .. mod)
@@ -32,5 +32,5 @@ test "hepack"
 --~ test "stx"
 --~ test "hesock"
 --~ test "hehs"
---~ test "moe"
+test "moe"
 

@@ -18,6 +18,10 @@ getnonce()    extract the nonce from an encrypted string
 stok()        generate a key from a keyfile content
 use()         select a crypto implementation or return the current one
 
+simplified api:
+sencrypt()     encrypt a string; base64-encode the result
+sdecrypt()     decrypt a base64-encoded string, 
+
 moe constants:
 VERSION       moe library version
 keylen        key length (in bytes)
@@ -39,7 +43,7 @@ local insert, concat = table.insert, table.concat
 ------------------------------------------------------------------------
 local moe = {} -- the moe module table
 
-moe.VERSION = "0.2"
+moe.VERSION = "0.3"
 
 moe.noncelen = 16
 moe.maclen = 16
@@ -60,6 +64,7 @@ function moe.use(crypto)
 	-- and and source used for nonces as strings
 	if not crypto then return moe.cryptolib, moe.noncegen end
 	local r, lz, mo, b64
+
 	if crypto == "luazen" then
 		r, lz = pcall(require, "luazen")
 		if not (r and lz.morus_encrypt) then return false end
@@ -164,6 +169,26 @@ function moe.getnonce(c)
 end
 
 ------------------------------------------------------------------------
+-- convenience functions / simplified API
+
+function moe.sencrypt(ks, p)
+	-- encrypt plain text p. result is armored (base64-encoded) 
+	-- ks is a key string (long passphrase or 
+	--   content of a keyfile, not a binary 32-byte string)
+	local k = moe.stok(ks)
+	return moe.encrypt(k, p, true)
+end
+
+function moe.sdecrypt(ks, c)
+	-- decrypt armored encrypted text c
+	-- ks is a key string (long passphrase or 
+	--   content of a keyfile, not a binary 32-byte string)
+	local k = moe.stok(ks)
+	return moe.decrypt(k, c, true)
+end
+
+------------------------------------------------------------------------
+
 -- file encryption
 
 -- file encryption is performed one block at a time.
