@@ -114,7 +114,8 @@ end --moe.use()
 local r, msg = moe.use("luazen")
 if not r then r, msg = moe.use("plc") end
 if not r then 
-	print("no available crypto.", msg)
+	print("moe: no available crypto.", msg)
+	os.exit(1)
 end
 
 
