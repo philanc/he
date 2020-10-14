@@ -229,6 +229,7 @@ function moe.fhencrypt(k, fhin, fhout, finlen)
 	end
 	finlen = finlen or math.maxinteger
 	while true do
+print("rcnt, wcnt", rcnt, wcnt)
 		cnt = min(psize, finlen - rcnt)
 		p, msg = fhin:read(cnt)
 		if not p then --eof
@@ -239,6 +240,8 @@ function moe.fhencrypt(k, fhin, fhout, finlen)
 		r, msg = fhout:write(c)
 		if not r then return nil, "output error: " .. msg end
 		wcnt = wcnt + #c
+print("#p", #p, "#c", #c)
+
 	end
 end --fhencrypt()
 
