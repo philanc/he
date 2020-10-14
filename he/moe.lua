@@ -52,6 +52,7 @@ moe.keylen = 32
 local encrypt -- encrypt(k, n, plain) 
 local decrypt -- decrypt(k, n, encr)
 local hash    -- hash(s, diglen)
+local random  -- return n random bytes as a string
 local newnonce  -- return noncelen random bytes as a string
 local b64encode, b64decode
 
@@ -75,6 +76,7 @@ function moe.use(crypto)
 		hash = lz.morus_xof
 		b64encode = lz.b64encode
 		b64decode = lz.b64decode
+		random = lz.randombytes
 		newnonce = function() 
 			return lz.randombytes(moe.noncelen) 
 		end
@@ -92,15 +94,18 @@ function moe.use(crypto)
 		b64decode = b64.decode	
 		local devrandom = io.open("/dev/urandom", "r")
 		if devrandom then
-			newnonce = function() 
-				return devrandom:read(moe.noncelen) 
+			random = function(n) 
+				return devrandom:read(n) 
 				end
 			moe.noncegen = "/dev/urandom"
 		else
-			newnonce = function() 
-				return hash(os.time()..os.clock(), moe.noncelen)
+			random = function(n) 
+				return hash(os.time()..os.clock(), n)
 				end
 			moe.noncegen = "time-based"
+		end
+		newnonce = function() 
+			return random(moe.noncelen) 
 		end
 		return true
 	else
@@ -156,6 +161,11 @@ function moe.stok(s)
 	-- take a key string and generate a key ("string-to-key")
 	-- (can be used for example to generate keys from a keyfile;
 	-- this is _not_ a password key derivation function)
+	-- if s is not provided or false, return a new random key
+	if not s then 
+		s = random(moe.keylen)
+		return s
+	end
 	local minlen = 1024
 	-- ensure s is at least minlen bytes
 	local slen = #s
