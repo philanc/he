@@ -17,6 +17,10 @@ jobs:
         echo "PWD: $(pwd)"
         echo "TMP: $TMP"
         #echo "LS: $(ls -l)
+        # get plc
+        wget -q -O plc-master.zip https://github.com/philanc/plc/archive/master.zip
+        unzip -j -d plc plc-master.zip 'plc-master/plc/*'
+        # get slua
         wget -q -O slua https://github.com/philanc/slua/raw/master/bin/slua-x64
         chmod ugo+x ./slua
         ./slua test_all.lua
