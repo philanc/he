@@ -1,3 +1,5 @@
+![CI](https://github.com/philanc/he/workflows/CI/badge.svg)
+
 # he
 
 A small bunch of Lua utility functions
