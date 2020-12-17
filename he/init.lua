@@ -34,7 +34,6 @@ content:
   uextend       same as extend but ensure all elements are unique
   uremove       remove first occurence of a value in a list
   
-
   -- other table functions
   clone         copy a table (shallow copy)
   update        extend a table with the (key, val) from another table
@@ -66,6 +65,8 @@ content:
   stohex        return a hexadecimal representation of a binary string
   hextos        parse a hex encoded string, return the string
   ntos          convert a number to a string with a thousand separator ','
+  spack         serialize lua values as a packed binary string
+  sunpack       deserialize a packed binary string to a lua value  
   
   --misc OS functions
   isodate       convert time to ISO date representation
@@ -93,7 +94,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he107, 201014'
+he.VERSION = 'he108, 201217'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52

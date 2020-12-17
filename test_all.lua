@@ -21,16 +21,4 @@ end
 
 ------------------------------------------------------------------------
 test "he"
---~ test "hefs"
-test "hecsv"
---~ test "hezen" -- luazen now built w/o norx. must use plc / revise the test
---~ test "henacl"
-test "hegetopt"
-test "hepack"
---~ test "henat"
---~ test "hebs"
---~ test "stx"
---~ test "hesock"
---~ test "hehs"
-test "moe"
 

@@ -15,7 +15,7 @@ assert(he)
 print(he.VERSION)
 
 -- make sure we test the correct version
-assert(he.VERSION:match("^he107,"), "bad he version")
+assert(he.VERSION:match("^he108,"), "bad he version")
 
 -- check that _G and string are not extended
 assert(not _G.he)
