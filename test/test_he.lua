@@ -289,6 +289,46 @@ assert(he.ntos(1234.668, '%9.2f')=='  1,234.67')
 --pattern
 assert(he.escape_re('a.b')=='a%.b')
 
+
+------------------------------------------------------------------------
+-- test spack, sunpack serialization functions
+
+do
+	--test equality including the metatable
+	local function eq(a, b) return he.equal(a, b, true) end
+	
+	local s, t, u, v, w
+	assert(he.sunpack(he.spack( 0 )) == 0 )
+	assert(he.sunpack(he.spack( -1 )) == -1 )
+	assert(he.sunpack(he.spack( -2 )) == -2 )
+	assert(he.sunpack(he.spack( 239 )) == 239 ) --0xef
+	assert(he.sunpack(he.spack( 1000 )) == 1000 )
+	assert(he.sunpack(he.spack( 1.02 )) == 1.02 )
+	assert(he.sunpack(he.spack( "" )) == "" )
+	assert(he.sunpack(he.spack( "aaa" )) == "aaa" )
+	assert(he.sunpack(he.spack( ('a'):rep(10000))) == ('a'):rep(10000))
+	assert(he.sunpack(he.spack( ('a'):rep(1000000))) == ('a'):rep(1000000))
+	assert(eq({}, he.sunpack(he.spack( {} ))))
+	assert(eq({{{}}}, he.sunpack(he.spack( {{{}}} ))))
+	t = {{a={'aaa'}}, 11, 22}
+	assert(eq(t, he.sunpack(he.spack( t ))))
+	l = he.list{{a={'aaa'}}, 11, 22}
+	assert(eq(l, he.sunpack(he.spack( l ))))
+
+	-- regular table literals
+	t = {11, 22, name="abc", {}, {{}}, {x=1, y=1.0}}
+	s = he.spack(t)
+	u = he.sunpack(s)
+	assert(eq(t, u))
+
+	t = {11, y=22, list{33,55}}
+	s = he.spack(t)
+	u = he.sunpack(s)
+	assert(eq(t, u))
+
+end
+
+
 ------------------------------------------------------------------------
 -- test file and os functions
 -- isodate, isodate11
