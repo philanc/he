@@ -126,7 +126,7 @@ assert(he.equal(a, b))
 -- extend
 list.extend(a, b); assert(a[3] == 'hello')
 --filter, map
-c = list.mapf(a, function(x) return type(x) == 'string' and x end)
+c = list.mapfilter(a, function(x) return type(x) == 'string' and x end)
 assert(c[2] == 'hello')
 d = list.map(c, function(x) return x..' bob' end)
 assert(c[2] == 'hello' and d[2] == 'hello bob')
@@ -155,13 +155,13 @@ t = list()
 t:insert{key=222, name='vic', age=33}
 t:insert{key='u111', name='paul', age=47}
 t:insert{key=333, name='mary', age=12}
-b = t:mapf(function(e) if e.name=='mary' then return e end end)
+b = t:mapfilter(function(e) if e.name=='mary' then return e end end)
 assert(#b == 1 and b[1].age == 12)
 --~ b = t:filter(he.testf, 'name', string.match, '.*a');  
-b = t:mapf(function(e) return e.name:match'.*a' and e end);  
+b = t:mapfilter(function(e) return e.name:match'.*a' and e end);  
 assert(#b == 2 and b[1].age == 47) 
 --~ b = t:sorted(he.reccmp'name') ; assert(#b == 3 and b[3].age == 33)
-b = t:map(function(e) return e.age * 2 end) ; assert(b[3] == 24)
+b = t:mapwhile(function(e) return e.age * 2 end) ; assert(b[3] == 24)
 
 -- test list objects
 a = list(); assert(#a == 0)

@@ -22,8 +22,9 @@ content:
   sort          sort a list (same as table.sort)
   sorted        return a sorted copy of a list
   extend        append all the elements of another list 
-  filter        select elements that match a predicate
   map           map a function over a list
+  mapwhile      map a function f over a list while f() returns a true value
+  mapfilter     map a function over a list, insert only true results
   has           test if a list contains some value
   find_elem     find an element that matches a predicate
   check_elems   check that all elements match a predicate
@@ -196,30 +197,6 @@ end
 
 function list.map(lst, f, ...)
 	-- maps function f over list lst
-	-- f is applied to each element v of lst, in sequence
-	-- creates a new list with results of f(v, ...) 
-	-- if the result of f(v, ...) is false, error_msg 
-	-- then map() stops and return false, error_msg, part_rlst
-	-- where part_rlst is the list of results already collected.
-	-- (if f returns false for a value in lst at index i, 
-	--  then #part_rlst == i - 1)
-	--
-	local r = list()
-	local x, errmsg
-	for i, v in ipairs(lst) do
-		x, errmsg = f(v, ...)
-		if not x then 
-			return false, errmsg, r
-		else
-			list.insert(r, x) 
-		end
-	end
-	return r
-end
-
-
-function list.mapall(lst, f, ...)
-	-- maps function f over list lst
 	-- f(v, ...) is applied to each element v of lst, in sequence
 	-- creates a new list with results of f (v, ...) 
 	-- if f() result is falsy (false or nil), false is inserted
@@ -235,8 +212,29 @@ function list.mapall(lst, f, ...)
 	return r
 end
 
-function list.mapf(lst, f, ...)
-	-- maps function f over list lst  ("map-filter")
+function list.mapwhile(lst, f, ...)
+	-- maps function f over list lst
+	-- f is applied to each element v of lst, in sequence
+	-- creates a new list with results of f(v, ...) 
+	-- if the result of f(v, ...) is false/nil, error_msg 
+	-- then map() stops and return the list of results already 
+	-- collected and error_msg.
+	--
+	local r = list()
+	local x, errmsg
+	for i, v in ipairs(lst) do
+		x, errmsg = f(v, ...)
+		if not x then 
+			return r, errmsg
+		else
+			list.insert(r, x) 
+		end
+	end
+	return r
+end
+
+function list.mapfilter(lst, f, ...)
+	-- maps function f over list lst
 	-- f is applied to each element v of lst, in sequence
 	-- creates a new list with results of f(v, ...) 
 	-- if the result of f(v, ...) is false, it is not inserted.
@@ -1201,7 +1199,7 @@ function he.ltos(t, nl)
 	end
 	local function tos(x, indent) return indent .. tostring(x) end
 	if getmetatable(t) == he.list then prefix = 'list'..prefix end
-	return prefix .. list.mapall(t, tos, indent):concat(sep) .. suffix
+	return prefix .. list.map(t, tos, indent):concat(sep) .. suffix
 end --ltos()
 
 -- display a table
