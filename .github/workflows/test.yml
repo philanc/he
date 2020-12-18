@@ -9,7 +9,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Run he test_all.lua
+    - name: Run test_he.lua
       run: |
         # !!no tabs!!
         echo "UNAME: $(uname -a)"
@@ -17,10 +17,7 @@ jobs:
         echo "PWD: $(pwd)"
         echo "TMP: $TMP"
         #echo "LS: $(ls -l)
-        # get plc
-        wget -q -O plc-master.zip https://github.com/philanc/plc/archive/master.zip
-        unzip -j -d plc plc-master.zip 'plc-master/plc/*'
         # get slua
         wget -q -O slua https://github.com/philanc/slua/raw/master/bin/slua-x64
         chmod ugo+x ./slua
-        ./slua test_all.lua
+        ./slua test_he.lua
