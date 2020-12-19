@@ -23,8 +23,9 @@ content:
   sorted        return a sorted copy of a list
   extend        append all the elements of another list 
   map           map a function over a list
-  mapwhile      map a function f over a list while f() returns a true value
+  mapwhile      map a function f over a list until f() returns a false value
   mapfilter     map a function over a list, insert only true results
+  reduce	apply a combining function to all elements of a list
   has           test if a list contains some value
   find_elem     find an element that matches a predicate
   check_elems   check that all elements match a predicate
@@ -195,12 +196,31 @@ function list.extend(lst, otherlist)
 	return lst
 end
 
+function list.reduce(lst, f, acc, ...)
+	-- for each element v of list lst, apply function f to acc, v 
+	-- (and optional arguments). If f result is nil, errmsg, then
+	-- reduce returns acc, errmsg; else it assign the result to acc 
+	-- and continue. When the last element has been processed, reduce
+	-- returns the last acc value
+	-- f has signature: f(acc, v, ...) => acc | nil, errmsg
+	--
+	for i, v in ipairs(lst) do
+		local r, errmsg = f(acc, v, ...)
+		if r ~= nil then 
+			acc = r
+		else
+			return acc, errmsg
+		end
+	end
+	return acc
+end
+
 function list.map(lst, f, ...)
 	-- maps function f over list lst
 	-- f(v, ...) is applied to each element v of lst, in sequence
 	-- creates a new list with results of f (v, ...) 
 	-- if f() result is falsy (false or nil), false is inserted
-	-- (so #mapall(lst, f, ...) == #lst)
+	-- (so #mapall(lst, f, ...) == #lst always holds)
 	local r = list()
 	local x
 	for i, v in ipairs(lst) do

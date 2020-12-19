@@ -125,7 +125,8 @@ assert(a ~= b)
 assert(he.equal(a, b))
 -- extend
 list.extend(a, b); assert(a[3] == 'hello')
---filter, map
+-- reduce, map*
+assert(list.reduce({1,2,3}, function(acc, v) return acc + v end, 0) == 6)
 c = list.mapfilter(a, function(x) return type(x) == 'string' and x end)
 assert(c[2] == 'hello')
 d = list.map(c, function(x) return x..' bob' end)
