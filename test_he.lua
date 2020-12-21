@@ -15,7 +15,7 @@ assert(he)
 print(he.VERSION)
 
 -- make sure we test the correct version
-assert(he.VERSION:match("^he108,"), "bad he version")
+assert(he.VERSION:match("^he109,"), "bad he version")
 
 -- check that _G and string are not extended
 assert(not _G.he)
@@ -199,16 +199,6 @@ b:uextend{};  assert(b:equal{11, 22, 33, 55, 66})
 a:uremove(22);  assert(a:equal{11,11,11,33,11,22,22})
 b:uremove(77);  assert(b:equal{11, 22, 33, 55, 66})
 
--- ltos, ttos
-l = {1,2}
-l2 = list{1,2}
-d = {a=11, b='bb'}
-assert(he.ltos(l) == "{ 1, 2 }")
-assert(he.ltos(l, true) == "{\n   1\n   2\n}")
-assert(he.ttos(d) == '{ a = 11, b = bb }')
-assert(he.ttos(d, true) ==  '{\n   a = 11\n   b = bb\n}')
-assert(he.ltos(l2) == 'list' .. he.ltos(l))
-assert(he.ttos(l2) == he.ltos(l2))
 
 ------------------------------------------------------------------------
 -- test table functions
@@ -332,32 +322,21 @@ end
 
 ------------------------------------------------------------------------
 -- test file and os functions
--- isodate, isodate11
-assert(string.match(he.isodate(),  -- eg. 20090707_133128
-			"^%d%d%d%d%d%d%d%d_%d%d%d%d%d%d$"))
-assert(string.match(he.isodate('0'),  -- eg. 20090707T133128
-			"^%d%d%d%d%d%d%d%dT%d%d%d%d%d%d$"))
-assert(string.match(he.isodate('1'),  -- eg. 20090707_133128
-			"^%d%d%d%d%d%d%d%d_%d%d%d%d%d%d$"))
-assert(string.match(he.isodate('2'),  -- eg. 2009-07-07 13:31:28
+-- isodate, isots
+assert(string.match(he.isodate(),  -- eg. 2009-07-07 13:31:28
 			"^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d$"))
-assert(string.match(he.isodate('2u'),  -- eg. 2009-07-07 13:31:28
-			"^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d UTC$"))
-assert(string.match(he.isodate('2z'),  -- eg. 2009-07-07 13:31:28
-			"^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d "
-			.. "[%+%-]%d%d%d%d$"))
-assert(string.match(he.isodate('2Z'),  -- eg. 2009-07-07 13:31:28 EST
-			"^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d "
-			.. "[%u%d]+$"))
+assert(he.isodate(1000000000) == "2001-09-08 21:46:40")
+assert(he.isodate(1000000000, true) == "2001-09-09 01:46:40 UTC")
+assert(he.isots(1000000000) == "20010908_214640")
 
 x = os.time()
 
-assert(x == he.iso2time(he.isodate(x)))
-assert(he.isodate(he.iso2time("20090707T133128")) == "20090707_133128")
-assert(he.isodate(he.iso2time("20090707_133128")) == "20090707_133128")
-assert(he.isodate(he.iso2time("20090707_1331")) == "20090707_133100")
-assert(he.isodate(he.iso2time("20090707-1331")) == "20090707_133100")
-assert(he.isodate(he.iso2time("20090707")) == "20090707_000000")
+assert(x == he.isototime(he.isodate(x)))
+assert(he.isots(he.isototime("20090707T133128")) == "20090707_133128")
+assert(he.isots(he.isototime("20090707_133128")) == "20090707_133128")
+assert(he.isots(he.isototime("20090707_1331")) == "20090707_133100")
+assert(he.isots(he.isototime("2009-07-07 13:31")) == "20090707_133100")
+assert(he.isots(he.isototime("20090707")) == "20090707_000000")
 
 ------------------------------------------------------------------------
 -- test pathname functions
@@ -430,14 +409,9 @@ he.fput(fn, 'hello'); x = he.fget(fn); assert(x == 'hello')
 -- shell, shlines
 
 -- Platform is Linux
-x = he.sh('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
+x = he.shell('ls -1 ' .. test_tmpdir .. '/he_test_file.t*')
 assert(he.endswith(he.split(x)[1], 'he_test_file.txt'))
 
 os.remove(fn)
-
---~ print(he.mem())
---~ he.mem_print()
---~ print(he.clock())
---~ he.clock_print()
 
 print("test_he:	ok")

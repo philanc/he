@@ -71,12 +71,10 @@ content:
   sunpack       deserialize a packed binary string to a lua value  
   
   --misc OS functions
-  isodate       convert time to ISO date representation
+  isodate       convert time to an ISO date representation
+  isots         convert time to an ISO date compact representation
   iso2time      parse ISO date and return a time (sec since epoch)
-  shell         execute a shell command, return stdout as a string
-  source_line   return the current file and line number
-  exitf         write a formatted message and exit from the program
-  checkf        check a value. if false, exit with a formatted message
+  shell         execute a shell command (wraps io.popen())
   
   -- misc file and pathname functions
   fget          return the content of a file as a string
@@ -96,7 +94,7 @@ content:
 
 local he = {}  -- the he module
 
-he.VERSION = 'he108, 201217'
+he.VERSION = 'he109, 201221'
 
 ------------------------------------------------------------------------
 table.unpack = table.unpack or unpack  --compat v51/v52
@@ -896,44 +894,49 @@ he.sunpack = unpack
 ------------------------------------------------------------------------
 -- date functions
 
-function he.isodate(t, f)
-	-- return formatted dat-time as a string
-	-- t: a unix time (integer). t is optional. defaults to now.
-	-- f: a format indicator (see values in table below)
-	-- f is optional. defaults to "1" -- local time, 20090709_122122
-	if type(t) == 'string' then f = t; t = nil end
-	f = f or "1"
-	local ft = {
-	  ["0"]  = "%Y%m%dT%H%M%S",            -- 20090709T122122  (local)
-	  ["0u"] = "!%Y%m%dT%H%M%SZ",          -- 20090709T122122Z  (utc)
-	  ["1"]  = "%Y%m%d_%H%M%S",            -- 20090709_122122  (local)
-	  ["1u"] = "!%Y%m%d_%H%M%S",           -- 20090709_122122  (utc)
-	  ["2"]  = "%Y-%m-%d %H:%M:%S",        -- 2009-07-09 12:21:22 (local)
-	  ["2u"] = "!%Y-%m-%d %H:%M:%S UTC",   -- 2009-07-09 12:21:22 UTC
-	  ["2z"] = "%Y-%m-%d %H:%M:%S %z",     -- 2009-07-09 12:21:22 -0500
-	  ["2Z"] = "%Y-%m-%d %H:%M:%S %Z",     -- 2009-07-09 12:21:22 EST
-	}
-	local fmt = ft[f] or ft["1"]
+function he.isodate(t, utcflag)
+	-- return ISO date-time as a string for time t
+	-- t defaults to current time
+	local fmt
+	if utcflag then
+		-- eg. "2009-07-09 12:21:22 UTC"
+		fmt = "!%Y-%m-%d %H:%M:%S UTC"
+	else
+		-- eg. "2009-07-09 12:21:22"  (this is local time)
+		fmt = "%Y-%m-%d %H:%M:%S"
+	end
+	return os.date(fmt, t)
+end
+
+function he.isots(t)
+	-- return ISO date-time (local time) as a string that can be 
+	-- used as a timestamp, an identifier or a filename 
+	-- eg. 20090709_122122
+	local fmt = "%Y%m%d_%H%M%S"
 	return os.date(fmt, t)
 end
 	
-function he.iso2time(s)
+function he.isototime(s)
 	-- parse an iso date - return a time (seconds since epoch)
-	-- format: 20090709T122122 or 20090709T1234 or or 20090709
+	-- these string formats are recognized: 
+	-- 2009-07-09 12:21:22 or 20090709T122122 
+	-- or 20090709T1234 or 20090709
 	-- (missing sec, min, hrs are replaced with '00')
-	-- (T can be replaced with '-' or '_')
+	-- (T can be replaced with '_' or a single space)
+	--
 	local t = {}
+	s = s:gsub("[:%-]", "")
 	t.year, t.month, t.day, t.hour, t.min, t.sec = string.match(s, 
-		"(%d%d%d%d)(%d%d)(%d%d)[T_-](%d%d)(%d%d)(%d%d)")
+		"(%d%d%d%d)(%d%d)(%d%d)[T_ ](%d%d)(%d%d)(%d%d)")
 	if t.year then return os.time(t) end
 	t.year, t.month, t.day, t.hour, t.min = string.match(s, 
-		"(%d%d%d%d)(%d%d)(%d%d)[T_-](%d%d)(%d%d)")
+		"(%d%d%d%d)(%d%d)(%d%d)[T_ ](%d%d)(%d%d)")
 	if t.year then t.sec = '00'; return os.time(t) end
 	t.year, t.month, t.day = string.match(s, "(%d%d%d%d)(%d%d)(%d%d)")
 	if t.year then 
 		t.hour = '00'; t.min = '00'; t.sec = '00'; return os.time(t)
 	end
-	return nil, "he.iso2time: invalid format"
+	return nil, "he.isototime: invalid format"
 end
 
 ------------------------------------------------------------------------
@@ -966,166 +969,31 @@ end
 
 local strf = string.format
 
-function he.shell(cmd, opt)
+function he.shell(cmd, strin)
 	-- execute the command 'cmd' in a subprocess with popen()
-	-- (see the Lua os.popen() description) 
-	-- opt is an optional table with additional optional parameters.
-	-- return succ, code, strout, strerr  where succ is a boolean
-	-- (nil if the command failed or true), code is an integer status 
-	-- code. it is either the command exit code if the process exited, 
-	-- or a signal code if the process was interrupted by a signal
-	-- (the signal code is the signal value + 256).
-	-- 'strout' and 'strerr' are the command stdout and stderr 
-	-- returned as strings. They are captured in temp files or 
-	-- directly by popen() - see the options in the 'opt' table.
-	--
-	-- opt.cwd = nil | dirpath
-	--    if defined, change working dir to dirpath
-        --    before running the command
-	-- opt.strin
-	--    a string that is passed to the command as stdin
-	-- opt.stdin = nil | "tmp"
-	--    (ignored if opt.strin is not defined)
-	--    'tmp' => the value of opt.strin is copied to a temp file
-	--        and the command stdin is redirected to the temp file.
-	--        The temp file is removed after execution.
-	--    nil => the opt.strin value is written to the popen pipe 
-	--       as the command stdin (popen mode 'w').
- 	-- opt.stdout = nil | "tmp"
-	--    'tmp' => the command stdout is captured in a temp file and 
-	--       returned. The temp file is removed after execution
-	-- opt.stderr = nil | "tmp" | "null | "stdout"
-	--    "stdout" or nil => stderr is redirected to stdout
-	--       (equivalent to appending " 2>&1 " after the command)
-	--    "tmp" => stderr is captured in a temp file and returned. 
-	--        The temp file is removed after execution.
-	--    "null" => stderr is redirected to /dev/null.
-	--
-	local strout, strerr = "", ""
-	local redir_in, redir_out, redir_err = "", "", ""
-	local tmpin, tmpout, tmperr
-	
-	opt = opt or {}  -- opt is optional
-	
-	-- the shell command template
-	local shfmt = [[
-		set -e
-		{
-		%s
-		%s
-		} %s %s %s ]]
-
-	-- optional cd before running the command
-	local chdir = ""
-	if opt.cwd then chdir = "cd " .. opt.cwd end
-	
-	local mode = 'r' -- the popen() mode
-	
-	-- setup stdin redirection, if needed
-	if opt.strin then
-		if not opt.stdin then 
-			mode = 'w'
-		elseif opt.stdin == 'tmp' then
-			tmpin = os.tmpname()
-			he.fput(tmpin, opt.stdin)
-			redir_in = strf(" <%s ", tmpin)
-		else
-			return nil, "invalid opt.stdin"
-		end
-	end
-
-	-- setup stderr redirection, if needed
-	if opt.stderr == "tmp" then
-		tmperr = os.tmpname()
-		redir_err = strf(" 2>%s ", tmperr)
-	elseif opt.stderr == "null" then 
-		redir_err = " 2> /dev/null "
-	elseif opt.stderr == "stdout" or not opt.stderr then 
-		redir_err = " 2>&1 "
-	end
-	
-	-- setup stdout redirection, if needed
-	if opt.stdout == "tmp" then
-		tmpout = os.tmpname()
-		redir_out = strf(" >%s ", tmpout)
-	end
-	
-	-- execute command
-	local shcmd = strf(shfmt, chdir, cmd, redir_in, redir_out, redir_err)
---~ 	print("MODE: " .. mode)
---~ 	print("SH: " .. shcmd)
-	local f = io.popen(shcmd, mode)
-	if mode == 'w' then
-		f:write(opt.strin)
+	-- `strin` is optional. if it is provided, popen() is called 
+	-- with mode "w" and strin is written to the subprocess stdin.
+	-- if strin is not provided, popen() is called with mode "r" 
+	-- and the subprocess stdout is read and returned.
+	-- he.shell() returns r, status or nil, errmsg in case of error.
+	-- r is either true (mode "w") or the subprocess stdout (mode "r")
+	-- The status is the subprocess exit code, or 128 + the signal
+	-- number if the program has been interrupted by a signal.
+	local mode = strin and "w" or "r"
+	local r, errm
+	local f, errm = io.popen(cmd, mode)
+	if not f then return nil, errm, "(popen)" end
+	if mode == "r" then
+		r, errm = f:read("a")
 	else
-		strout = f:read("*a")
+		r, errm = f:write(strin)
 	end
+	if not r then return nil, errm, "(r/w)" end
 	local succ, exit, status = f:close()
-	
-	-- collect stdout, stderr and remove temp files if any
-	if tmpin then os.remove(tmpin) end
-	if tmpout then
-		strout = he.fget(tmpout)
-		os.remove(tmpout)
-	end
-	if tmperr then
-		strerr = he.fget(tmperr)
-		os.remove(tmperr)
-	end
-	
-	-- return results
-	if exit == "signal" then status = status + 256 end
-	return succ, status, strout, strerr
-
-end--shell()
-
-function he.sh(cmd, cwd)
-	-- convenience function: execute a command (with he.shell())
-	-- cwd is an optional directory path. if provided, the command
-	-- is executed in this directory.
-	-- on success, return the stdout
-	-- on failure, return nil, msg
-	-- msg is "<status>. <stdout/stderr>"
-	local succ, code, strout = he.shell(cmd, {cwd=cwd})
-	if succ then return strout end
-	return nil, strf("Exit code: %s.  %s", code, strout)
-end --sh()
-
-function he.shlines(cmd, cwd)
-	-- convenience function: execute a command with he.sh()
-	-- and return result as a list of lines, or nil, errmsg.
-	local s, msg = he.sh(cmd, cwd)
-	if not s then return s, msg end
-	local ll = list()
-	for l in he.lines(s) do ll:insert(l) end
-	return ll	
-end -- shlines()
-
-function he.source_line(level)
-	-- return <sourcefilename>:<current line>
-	-- level is the caller level: 
-	--    2: where source_line() is called (this is the default)
-	--    3: where the caller of source_line() is called
-	--    etc.
-	level = level or 2
-	local info = debug.getinfo(level) 
-	if not info then return "[nil]:-1" end
-	return string.format("%s:%s", info.short_src, info.currentline)
+	status = (exit=='signal' and status+128 or status)
+	return r, status
 end
 
-function he.exitf(exitcode, fmt, ...)
-	-- write a formatted message to stderr and exit the current program 
-	-- exitcode is an integer (parameter for os.exit())
-	io.stderr:write(string.format(fmt, ...), "\n")
-	os.exit(exitcode)
-end
-
-function he.checkf(val, fmt, ...)
-	-- exit with a formatted message if val is false (exit code is 1)
-	-- or return val
-	if not val then exitf(1, fmt, ...) end
-	return val
-end
 
 ------------------------------------------------------------------------
 -- small pathname utility functions
@@ -1142,13 +1010,8 @@ function he.mktmpdir()
 	local tmp = he.tmpdir()
 	local cmd = string.format(
 			"td=%s/he-%s-$$ ; mkdir $td; echo -n $td", 
-			tmp, he.isodate())
+			tmp, he.isots())
 	return he.sh(cmd)
-end
-
-function he.rmdir(dirpath)
-	-- remove directory and all its content (beware!! powerful footgun!)
-	return he.sh("rm -r " .. dirpath)
 end
 
 local function striprsep(p) 
@@ -1203,73 +1066,30 @@ function he.isabspath(p)
 	return p:match('^/')
 end
 
-
 ------------------------------------------------------------------------
 -- convenience functions for interactive usage or quick throw-away scripts
 -- (used to be in hei.lua - modified 200308)
 
 
--- display a list
-function he.ltos(t, nl)
-	-- return a string rep of a list, or of the list part of a table
-	-- if 'nl' is true, each element is displayed on a new line.
-	local prefix, suffix, indent, sep = '{ ', ' }', '', ', '
-	if nl then 
-		prefix, suffix, indent, sep = '{\n', '\n}', '   ', '\n'
-	end
-	local function tos(x, indent) return indent .. tostring(x) end
-	if getmetatable(t) == he.list then prefix = 'list'..prefix end
-	return prefix .. list.map(t, tos, indent):concat(sep) .. suffix
-end --ltos()
-
--- display a table
-function he.ttos(t, nl)
-	-- return a string rep of a table. if the table is a he.list
-	-- it is displayed as a list(he.ltos())
-	-- if 'nl' is true, each key/value pair is displayed on a new line.
-	if getmetatable(t) == he.list then return he.ltos(t, nl) end
-	local prefix, suffix, indent, sep = '{ ', ' }', '', ', '
-	if nl then 
-		prefix, suffix, indent, sep = '{\n', '\n}', '   ', '\n'
-	end
-	local function tos(k, v, indent) 
-		return strf("%s%s = %s", indent, tostring(k), tostring(v))
-	end
-	local repl = list()
-	local v
-	for i, k in he.sortedkeys(t) do
-		repl:insert(tos(k, t[k], indent))
-	end
-	local rep = prefix .. repl:concat(sep) .. suffix
-	return rep
-end --ttos()
-
-function he.ppl(t, nl) print(he.ltos(t, nl)) end
-function he.ppt(t, nl) print(he.ttos(t, nl)) end
-
-
--- display any object
 function he.pp(...)
-	local repr = he.repr
+	-- display any object
+	local repr, strf = he.repr, string.format
+	local printf = function(...) print(strf(...)) end
 	local x
 	for i = 1, select('#', ...) do
 		x = select(i, ...)
 		if type(x) == 'table' then 
-			he.printf("pp: %s   metatable: %s",  
+			printf("pp: %s   metatable: %s",  
 				tostring(x), tostring(getmetatable(x)))						
 			local kl = he.sortedkeys(x)
 			for i,k in ipairs(kl) do
-				he.printf("	| %s:  %s", 
+				printf("	| %s:  %s", 
 					repr(k), repr(x[k]))
 			end
-		else he.printf("pp: %s", he.repr(x))
+		else printf("pp: %s", repr(x))
 		end
 	end
 end
-
-
-function he.errf(...) error(string.format(...)) end
-function he.printf(...) print(string.format(...)) end
 
 function he.px(s) 
 	-- hex dump the string s
@@ -1291,39 +1111,16 @@ function he.pix(i)
 	pf("0x%08x", i)
 end
 
-------------------------------------------------------------------------
--- elapsed time, used memory
-
--- replace elapsed() and dual time()/clock() display with  a simpler 
--- clock()-based function (looks like clock() is "the best" source for
--- elapsed time (with a precision ~ 0.1s)
--- (seems reasonable at least on linux and windows)
-
-function he.clock_start()
-	he.clock_start_value = os.clock()
-end
-
-function he.clock()
-	return os.clock() - (he.clock_start_value or 0)
-end
-
-function he.clock_print(msg)
-	msg = msg or "elapsed"
-	print(string.format("%s: %.1f", msg, he.clock()))
-end
-
-
 function he.mem() 
 	-- return used memory, in bytes
 	collectgarbage()
 	return math.floor(collectgarbage'count' * 1024) 
 end
 
-function he.mem_print(m, msg)
+function he.pmem(m)
 	-- print used memory in a human readable format ("1,000,000")
-	msg = msg or "Used memory (in bytes): "
 	m = m or he.mem()
-	print(msg .. he.ntos(m, "%d", 15))
+	print("Used memory (in bytes): " .. he.ntos(m, "%d", 15))
 end
 
 
