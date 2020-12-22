@@ -897,6 +897,7 @@ he.sunpack = unpack
 function he.isodate(t, utcflag)
 	-- return ISO date-time as a string for time t
 	-- t defaults to current time
+	-- to get the current UTC time, use: isodate(nil, true)
 	local fmt
 	if utcflag then
 		-- eg. "2009-07-09 12:21:22 UTC"
@@ -1071,6 +1072,9 @@ end
 -- convenience functions for interactive usage or quick throw-away scripts
 -- (used to be in hei.lua - modified 200308)
 
+he.strf = string.format
+
+function he.printf(...) print(strf(...)) end
 
 function he.pp(...)
 	-- display any object
