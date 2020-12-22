@@ -325,9 +325,10 @@ end
 -- isodate, isots
 assert(string.match(he.isodate(),  -- eg. 2009-07-07 13:31:28
 			"^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d$"))
-assert(he.isodate(1000000000) == "2001-09-08 21:46:40")
+assert(string.match(he.isots(),  -- eg. 20010908_214640
+			"^%d%d%d%d%d%d%d%d_%d%d%d%d%d%d$"))
 assert(he.isodate(1000000000, true) == "2001-09-09 01:46:40 UTC")
-assert(he.isots(1000000000) == "20010908_214640")
+assert(he.isots(1000000000, true) == "20010909_014640")
 
 x = os.time()
 

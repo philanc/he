@@ -908,11 +908,12 @@ function he.isodate(t, utcflag)
 	return os.date(fmt, t)
 end
 
-function he.isots(t)
+function he.isots(t, utcflag)
 	-- return ISO date-time (local time) as a string that can be 
 	-- used as a timestamp, an identifier or a filename 
 	-- eg. 20090709_122122
 	local fmt = "%Y%m%d_%H%M%S"
+	if utcflag then fmt = "!" .. fmt end
 	return os.date(fmt, t)
 end
 	
