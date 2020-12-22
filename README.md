@@ -8,7 +8,7 @@ A small bunch of Lua utility functions
 * table and list (map, filter, extend, ...)
 * OS and file (ISO date and time, read and write file, shell, ...)
 
-This stuff is definitely NOT stable, and  NOT maintained.  
+This stuff is definitely NOT stable, i.e. the API may change at any time.
 
 License: MIT -- see the file LICENSE
 
