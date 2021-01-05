@@ -565,12 +565,16 @@ end
 
 function he.lstrip(s)
 	-- remove whitespace at beginning of string s
-	return string.gsub(s, '^%s+', '') 
+	s = string.gsub(s, '^%s+', '')
+	return s  -- return only 1st value returned by gsub
 end
 
 function he.rstrip(s) 
 	-- remove whitespace at end of string s
-	return string.gsub(s, '%s+$', '') 
+	--
+	-- keep extra paren to return only the stripped string
+	s = string.gsub(s, '%s+$', '')
+	return s  -- return only 1st value returned by gsub
 end
 
 function he.strip(s) 
@@ -580,7 +584,8 @@ end
 
 function he.stripeol(s) 
 	-- remove whitespace at end of each line in string s
-	return string.gsub(he.rstrip(s), '[ \t]+(\r?\n)', '%1') 
+	s = string.gsub(he.rstrip(s), '[ \t]+(\r?\n)', '%1')
+	return s  -- return only 1st value returned by gsub
 end
 
 function he.stripnl(s)
@@ -608,7 +613,8 @@ end
 function he.escape_re(s)
 	-- escapes string s so it can be used as a re pattern
 	-- eg.  he.escape_re("a.b") -> "a%.b"
-	return string.gsub(s, "(%p)", "%%%1")
+	s = string.gsub(s, "(%p)", "%%%1")
+	return s  -- return only 1st value returned by gsub
 end
 
 ------------------------------------------------------------------------
