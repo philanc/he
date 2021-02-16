@@ -1119,7 +1119,7 @@ end
 
 function he.pix(i) 
 	-- print integer i as a hex number
-	pf("0x%08x", i)
+	he.printf("0x%08x", i)
 end
 
 function he.mem() 
