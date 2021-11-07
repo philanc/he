@@ -13,7 +13,7 @@ jobs:
       run: |
         # get slua; slua test_he.lua
         # !!no leading tabs here!!
-	set -v
+        set -v
         uname -vm
         pwd
         wget -q -O slua https://github.com/philanc/slua/raw/master/bin/slua
