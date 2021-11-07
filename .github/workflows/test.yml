@@ -12,7 +12,8 @@ jobs:
     - name: Run test_he.lua
       run: |
         # get slua; slua test_he.lua
-        # !!no tabs!!
+        # !!no leading tabs here!!
+	set -v
         uname -vm
         pwd
         wget -q -O slua https://github.com/philanc/slua/raw/master/bin/slua
