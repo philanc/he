@@ -11,13 +11,11 @@ jobs:
     - uses: actions/checkout@v2
     - name: Run test_he.lua
       run: |
+        # get slua; slua test_he.lua
         # !!no tabs!!
-        echo "UNAME: $(uname -a)"
-        #echo "ID: $(id)
-        echo "PWD: $(pwd)"
-        echo "TMP: $TMP"
-        #echo "LS: $(ls -l)
-        # get slua
-        wget -q -O slua https://github.com/philanc/slua/raw/master/bin/slua-x64
+        uname -vm
+        pwd
+        wget -q -O slua https://github.com/philanc/slua/raw/master/bin/slua
         chmod ugo+x ./slua
         ./slua test_he.lua
+
